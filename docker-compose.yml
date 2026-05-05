@@ -53,6 +53,10 @@ services:
     environment:
       - CLOUD_PROVIDER=aws
       - LOG_FILE=/app/logs/logs.jsonl
+      - CLOUDWATCH_ENABLED=true
+      - AWS_REGION=eu-north-1
+      - CLOUDWATCH_LOG_GROUP=cloudtrap-logs
+      - CLOUDWATCH_LOG_STREAM=s3-service
     restart: always
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5001/_internal/health"]
@@ -72,6 +76,10 @@ services:
     environment:
       - CLOUD_PROVIDER=aws
       - LOG_FILE=/app/logs/logs.jsonl
+      - CLOUDWATCH_ENABLED=true
+      - AWS_REGION=eu-north-1
+      - CLOUDWATCH_LOG_GROUP=cloudtrap-logs
+      - CLOUDWATCH_LOG_STREAM=login-portal
     restart: always
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5002/_internal/health"]

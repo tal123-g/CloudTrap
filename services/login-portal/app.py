@@ -7,22 +7,32 @@ Runs on port 5002.
 
 import json
 import os
+import time
 import logging
+import hashlib
 from datetime import datetime, timezone
 from pathlib import Path
 
+import boto3
+from botocore.exceptions import ClientError
 from flask import Flask, request, jsonify, Response
 
 app = Flask(__name__)
 
 LOG_FILE = Path(os.getenv("LOG_FILE", "logs.jsonl"))
 
+CLOUDWATCH_ENABLED = os.getenv("CLOUDWATCH_ENABLED", "false").lower() == "true"
+AWS_REGION = os.getenv("AWS_REGION", "eu-north-1")
+LOG_GROUP = os.getenv("CLOUDWATCH_LOG_GROUP", "cloudtrap-logs")
+LOG_STREAM = os.getenv("CLOUDWATCH_LOG_STREAM", "login-portal")
+
+logs_client = boto3.client("logs", region_name=AWS_REGION) if CLOUDWATCH_ENABLED else None
+
 log = logging.getLogger("werkzeug")
 log.setLevel(logging.ERROR)
 
 HEADER_BLOCKLIST = {"Cookie", "Accept-Encoding"}
 
-# Fake portal HTML — looks like a real corporate login page
 LOGIN_PAGE = """<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -101,14 +111,43 @@ LOGIN_PAGE = """<!DOCTYPE html>
 </body>
 </html>"""
 
-# Same page but with the error div visible — shown after a failed attempt
-LOGIN_PAGE_ERROR = LOGIN_PAGE.replace(
-    'display: none;',
-    'display: block;'
-)
+LOGIN_PAGE_ERROR = LOGIN_PAGE.replace('display: none;', 'display: block;')
 
 
-# ── Helpers ────────────────────────────────────────────────────────────────────
+def setup_cloudwatch():
+    if not CLOUDWATCH_ENABLED:
+        return
+    try:
+        logs_client.create_log_group(logGroupName=LOG_GROUP)
+    except ClientError as e:
+        if e.response["Error"]["Code"] != "ResourceAlreadyExistsException":
+            raise
+    try:
+        logs_client.create_log_stream(
+            logGroupName=LOG_GROUP,
+            logStreamName=LOG_STREAM
+        )
+    except ClientError as e:
+        if e.response["Error"]["Code"] != "ResourceAlreadyExistsException":
+            raise
+
+
+def send_to_cloudwatch(entry: dict):
+    if not CLOUDWATCH_ENABLED:
+        return
+    try:
+        logs_client.put_log_events(
+            logGroupName=LOG_GROUP,
+            logStreamName=LOG_STREAM,
+            logEvents=[{
+                "timestamp": int(time.time() * 1000),
+                "message": json.dumps(entry, ensure_ascii=False),
+            }],
+        )
+    except Exception as e:
+        print(f"[CloudWatch error] {e}", flush=True)
+
+
 def filtered_headers():
     return {k: v for k, v in request.headers.items() if k not in HEADER_BLOCKLIST}
 
@@ -131,12 +170,11 @@ def write_log(action: str, extra: dict = None):
     line = json.dumps(entry, ensure_ascii=False)
     with LOG_FILE.open("a", encoding="utf-8") as f:
         f.write(line + "\n")
+
+    send_to_cloudwatch(entry)  # ← added
     print(line, flush=True)
 
 
-# ── Routes ─────────────────────────────────────────────────────────────────────
-
-# Health check FIRST — before any catch-all
 @app.route("/_internal/health")
 def health():
     return jsonify({"status": "ok"}), 200
@@ -145,26 +183,14 @@ def health():
 @app.route("/", methods=["GET"])
 @app.route("/login", methods=["GET"])
 def show_login():
-    """Serve the fake login page — log the visit."""
     write_log("page_visit")
     return Response(LOGIN_PAGE, status=200, mimetype="text/html")
 
 
 @app.route("/login", methods=["POST"])
 def handle_login():
-    """
-    Capture submitted credentials.
-    Always return 'invalid' — never grant access.
-    Log the username in plain text but hash the password
-    so we're not storing captured secrets as-is.
-    """
-    import hashlib
-
     username = request.form.get("username", "").strip()
     password = request.form.get("password", "")
-
-    # Store a hash of the password, not the plaintext
-    # Useful for detecting reused/common passwords without storing real creds
     password_hash = hashlib.sha256(password.encode()).hexdigest() if password else None
 
     write_log("credential_attempt", {
@@ -172,14 +198,11 @@ def handle_login():
         "password_hash":   password_hash,
         "password_length": len(password),
     })
-
-    # Always reject — show error page to keep attacker trying
     return Response(LOGIN_PAGE_ERROR, status=401, mimetype="text/html")
 
 
 @app.route("/reset-password", methods=["GET", "POST"])
 def reset_password():
-    """Common path attackers probe after failed logins."""
     write_log("password_reset_probe", {
         "username": request.form.get("email", request.form.get("username", "")),
     })
@@ -190,7 +213,6 @@ def reset_password():
     )
 
 
-# Catch remaining paths (scanners probe /admin, /dashboard, /wp-login, etc.)
 @app.route("/<path:path>", methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"])
 def catch_all(path):
     write_log("path_probe")
@@ -199,4 +221,5 @@ def catch_all(path):
 
 if __name__ == "__main__":
     LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
+    setup_cloudwatch()  # ← added
     app.run(host="0.0.0.0", port=5002, debug=False)

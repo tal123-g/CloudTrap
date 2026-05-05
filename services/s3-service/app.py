@@ -7,22 +7,31 @@ Runs on port 5001.
 
 import json
 import os
+import time
 import logging
 from datetime import datetime, timezone
 from pathlib import Path
 
+import boto3
+from botocore.exceptions import ClientError
 from flask import Flask, request, jsonify, Response
 
 app = Flask(__name__)
 
 LOG_FILE = Path(os.getenv("LOG_FILE", "logs.jsonl"))
 
+CLOUDWATCH_ENABLED = os.getenv("CLOUDWATCH_ENABLED", "false").lower() == "true"
+AWS_REGION = os.getenv("AWS_REGION", "eu-north-1")
+LOG_GROUP = os.getenv("CLOUDWATCH_LOG_GROUP", "cloudtrap-logs")
+LOG_STREAM = os.getenv("CLOUDWATCH_LOG_STREAM", "s3-service")
+
+logs_client = boto3.client("logs", region_name=AWS_REGION) if CLOUDWATCH_ENABLED else None
+
 log = logging.getLogger("werkzeug")
 log.setLevel(logging.ERROR)
 
 HEADER_BLOCKLIST = {"Cookie", "Accept-Encoding"}
 
-# Fake bucket names — appear in list_buckets to encourage deeper probing
 FAKE_BUCKETS = [
     "prod-backups-2024",
     "internal-assets",
@@ -30,7 +39,40 @@ FAKE_BUCKETS = [
 ]
 
 
-# ── Helpers ────────────────────────────────────────────────────────────────────
+def setup_cloudwatch():
+    if not CLOUDWATCH_ENABLED:
+        return
+    try:
+        logs_client.create_log_group(logGroupName=LOG_GROUP)
+    except ClientError as e:
+        if e.response["Error"]["Code"] != "ResourceAlreadyExistsException":
+            raise
+    try:
+        logs_client.create_log_stream(
+            logGroupName=LOG_GROUP,
+            logStreamName=LOG_STREAM
+        )
+    except ClientError as e:
+        if e.response["Error"]["Code"] != "ResourceAlreadyExistsException":
+            raise
+
+
+def send_to_cloudwatch(entry: dict):
+    if not CLOUDWATCH_ENABLED:
+        return
+    try:
+        logs_client.put_log_events(
+            logGroupName=LOG_GROUP,
+            logStreamName=LOG_STREAM,
+            logEvents=[{
+                "timestamp": int(time.time() * 1000),
+                "message": json.dumps(entry, ensure_ascii=False),
+            }],
+        )
+    except Exception as e:
+        print(f"[CloudWatch error] {e}", flush=True)
+
+
 def safe_payload():
     payload = request.get_json(silent=True)
     if payload is not None:
@@ -47,7 +89,6 @@ def filtered_headers():
 
 
 def write_log(action: str, extra: dict = None):
-    """Build and persist a structured log entry for this request."""
     entry = {
         "timestamp":      datetime.now(timezone.utc).isoformat(),
         "service":        "s3-service",
@@ -67,14 +108,12 @@ def write_log(action: str, extra: dict = None):
     line = json.dumps(entry, ensure_ascii=False)
     with LOG_FILE.open("a", encoding="utf-8") as f:
         f.write(line + "\n")
+
+    send_to_cloudwatch(entry)  # ← added
     print(line, flush=True)
 
 
 def s3_error_xml(code: str, message: str, status: int) -> Response:
-    """
-    Return an S3-style XML error so automated tools (boto3, awscli)
-    behave as if this is a real S3 endpoint — keeping attackers engaged longer.
-    """
     body = (
         '<?xml version="1.0" encoding="UTF-8"?>'
         "<Error>"
@@ -86,17 +125,9 @@ def s3_error_xml(code: str, message: str, status: int) -> Response:
     return Response(body, status=status, mimetype="application/xml")
 
 
-# ── Routes ─────────────────────────────────────────────────────────────────────
-
 @app.route("/", methods=["GET"])
 def list_buckets():
-    """
-    Respond with a plausible-looking bucket list.
-    Real S3 returns XML; we mimic that so boto3/awscli parse it correctly.
-    """
     write_log("list_buckets")
-
-    # Return fake bucket names to entice the attacker to keep probing
     bucket_entries = "".join(
         f"<Bucket><Name>{b}</Name><CreationDate>2024-01-01T00:00:00.000Z</CreationDate></Bucket>"
         for b in FAKE_BUCKETS
@@ -114,8 +145,6 @@ def list_buckets():
 @app.route("/<bucket_name>", methods=["GET"])
 def list_objects(bucket_name):
     write_log("list_objects", {"bucket_name": bucket_name})
-
-    # Return empty object list — real enough to keep automated tools running
     body = (
         '<?xml version="1.0" encoding="UTF-8"?>'
         "<ListBucketResult>"
@@ -152,12 +181,10 @@ def delete_object(bucket_name, object_key):
 
 @app.route("/<bucket_name>/<path:object_key>", methods=["HEAD"])
 def head_object(bucket_name, object_key):
-    """HEAD is used by attackers to check if objects exist without downloading."""
     write_log("head_object", {"bucket_name": bucket_name, "object_key": object_key})
     return Response(status=403)
 
 
-# ── Health check ───────────────────────────────────────────────────────────────
 @app.route("/_internal/health")
 def health():
     return jsonify({"status": "ok"}), 200
@@ -165,4 +192,5 @@ def health():
 
 if __name__ == "__main__":
     LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
+    setup_cloudwatch()  # ← added
     app.run(host="0.0.0.0", port=5001, debug=False)
