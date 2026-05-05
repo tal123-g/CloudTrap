@@ -1,0 +1,46 @@
+name: CloudTrap CI/CD
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Secret scan with Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Check Python syntax
+        run: |
+          python -m py_compile services/api-service/app.py
+          python -m py_compile services/s3-service/app.py
+          python -m py_compile services/login-portal/app.py
+          python -m py_compile services/analyzer/analyzer.py
+          python -m py_compile services/dashboard/app.py
+
+      - name: Validate Docker Compose
+        run: docker compose config
+
+      - name: Build Docker containers
+        run: docker compose build
+
+      - name: Scan for vulnerabilities with Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: fs
+          scan-ref: .
+          severity: CRITICAL
+          exit-code: 0
