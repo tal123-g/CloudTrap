@@ -1,0 +1,19 @@
+__pycache__/
+*.pyc
+venv/
+.env
+*.log
+logs.jsonl
+.vscode/
+.idea/
+
+# AWS credentials - important!
+*.pem
+*.key
+cloudtrap-key*
+
+# Docker
+.docker/
+
+# Database
+*.sql.bak
