@@ -1,0 +1,132 @@
+version: "3.9"
+
+services:
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: cloudtrap-postgres
+    environment:
+      POSTGRES_DB:       cloudtrap
+      POSTGRES_USER:     cloudtrap
+      POSTGRES_PASSWORD: cloudtrap
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cloudtrap"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api-service:
+    build:
+      context: ./services/api-service
+      dockerfile: Dockerfile
+    container_name: cloudtrap-api
+    ports:
+      - "5000:5000"
+    volumes:
+      - api-logs:/app/logs
+    environment:
+      - CLOUD_PROVIDER=aws
+      - LOG_FILE=/app/logs/logs.jsonl
+      - CLOUDWATCH_ENABLED=true
+      - AWS_REGION=eu-north-1
+      - CLOUDWATCH_LOG_GROUP=cloudtrap-logs
+      - CLOUDWATCH_LOG_STREAM=api-service
+    restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/_internal/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  s3-service:
+    build:
+      context: ./services/s3-service
+      dockerfile: Dockerfile
+    container_name: cloudtrap-s3
+    ports:
+      - "5001:5001"
+    volumes:
+      - s3-logs:/app/logs
+    environment:
+      - CLOUD_PROVIDER=aws
+      - LOG_FILE=/app/logs/logs.jsonl
+    restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5001/_internal/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  login-portal:
+    build:
+      context: ./services/login-portal
+      dockerfile: Dockerfile
+    container_name: cloudtrap-login
+    ports:
+      - "5002:5002"
+    volumes:
+      - login-logs:/app/logs
+    environment:
+      - CLOUD_PROVIDER=aws
+      - LOG_FILE=/app/logs/logs.jsonl
+    restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5002/_internal/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  analyzer:
+    build:
+      context: ./services/analyzer
+      dockerfile: Dockerfile
+    container_name: cloudtrap-analyzer
+    volumes:
+      - api-logs:/app/logs/api-service
+      - s3-logs:/app/logs/s3-service
+      - login-logs:/app/logs/login-portal
+    environment:
+      - API_LOG_FILE=/app/logs/api-service/logs.jsonl
+      - S3_LOG_FILE=/app/logs/s3-service/logs.jsonl
+      - LOGIN_LOG_FILE=/app/logs/login-portal/logs.jsonl
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=cloudtrap
+      - POSTGRES_USER=cloudtrap
+      - POSTGRES_PASSWORD=cloudtrap
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  dashboard:
+    build:
+      context: ./services/dashboard
+      dockerfile: Dockerfile
+    container_name: cloudtrap-dashboard
+    ports:
+      - "5003:5003"
+    environment:
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=cloudtrap
+      - POSTGRES_USER=cloudtrap
+      - POSTGRES_PASSWORD=cloudtrap
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5003/_internal/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  api-logs:
+  s3-logs:
+  login-logs:
+  postgres-data:

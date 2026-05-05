@@ -1,0 +1,235 @@
+{
+  "generated_at": "2026-05-02T16:41:41.497222+00:00",
+  "total_events": 20,
+  "attack_summary": {
+    "credential_attempt": 9,
+    "api_reconnaissance": 4,
+    "bucket_enumeration": 3,
+    "object_access_attempt": 2,
+    "object_upload_attempt": 1,
+    "login_page_visit": 1
+  },
+  "severity_counts": {
+    "HIGH": 10,
+    "LOW": 5,
+    "MEDIUM": 5
+  },
+  "attackers": [
+    {
+      "ip": "127.0.0.1",
+      "threat_score": 45,
+      "event_count": 20,
+      "top_severity": "HIGH",
+      "attack_types": [
+        "api_reconnaissance",
+        "bucket_enumeration",
+        "credential_attempt",
+        "object_access_attempt",
+        "object_upload_attempt",
+        "login_page_visit"
+      ],
+      "events": [
+        {
+          "timestamp": "2026-04-25T11:18:02.194631+00:00",
+          "service": "api-service",
+          "method": "POST",
+          "path": "/login",
+          "action": null,
+          "command": null,
+          "attack_type": "credential_attempt",
+          "severity": "HIGH"
+        },
+        {
+          "timestamp": "2026-04-25T11:18:51.830390+00:00",
+          "service": "api-service",
+          "method": "POST",
+          "path": "/login",
+          "action": null,
+          "command": null,
+          "attack_type": "credential_attempt",
+          "severity": "HIGH"
+        },
+        {
+          "timestamp": "2026-04-25T11:20:20.549648+00:00",
+          "service": "api-service",
+          "method": "POST",
+          "path": "/login",
+          "action": null,
+          "command": null,
+          "attack_type": "credential_attempt",
+          "severity": "HIGH"
+        },
+        {
+          "timestamp": "2026-04-25T11:35:51.384769+00:00",
+          "service": "s3-service",
+          "method": "GET",
+          "path": "/my-bucket",
+          "action": "list_objects",
+          "command": null,
+          "attack_type": "bucket_enumeration",
+          "severity": "MEDIUM"
+        },
+        {
+          "timestamp": "2026-04-25T11:35:58.394996+00:00",
+          "service": "s3-service",
+          "method": "GET",
+          "path": "/my-bucket/secrets.txt",
+          "action": "get_object",
+          "command": null,
+          "attack_type": "object_access_attempt",
+          "severity": "MEDIUM"
+        },
+        {
+          "timestamp": "2026-04-25T11:37:27.008923+00:00",
+          "service": "s3-service",
+          "method": "PUT",
+          "path": "/my-bucket/upload.txt",
+          "action": "put_object",
+          "command": null,
+          "attack_type": "object_upload_attempt",
+          "severity": "HIGH"
+        },
+        {
+          "timestamp": "2026-05-02T16:15:03.898224+00:00",
+          "service": "api-service",
+          "method": "POST",
+          "path": "/login",
+          "action": null,
+          "command": null,
+          "attack_type": "credential_attempt",
+          "severity": "HIGH"
+        },
+        {
+          "timestamp": "2026-05-02T16:15:20.882796+00:00",
+          "service": "api-service",
+          "method": "GET",
+          "path": "/admin",
+          "action": null,
+          "command": null,
+          "attack_type": "api_reconnaissance",
+          "severity": "LOW"
+        },
+        {
+          "timestamp": "2026-05-02T16:16:14.238751+00:00",
+          "service": "api-service",
+          "method": "POST",
+          "path": "/login",
+          "action": null,
+          "command": null,
+          "attack_type": "credential_attempt",
+          "severity": "HIGH"
+        },
+        {
+          "timestamp": "2026-05-02T16:18:08.579553+00:00",
+          "service": "api-service",
+          "method": "GET",
+          "path": "/",
+          "action": null,
+          "command": null,
+          "attack_type": "api_reconnaissance",
+          "severity": "LOW"
+        },
+        {
+          "timestamp": "2026-05-02T16:19:18.161323+00:00",
+          "service": "api-service",
+          "method": "GET",
+          "path": "/admin",
+          "action": null,
+          "command": null,
+          "attack_type": "api_reconnaissance",
+          "severity": "LOW"
+        },
+        {
+          "timestamp": "2026-05-02T16:19:22.078382+00:00",
+          "service": "api-service",
+          "method": "GET",
+          "path": "/",
+          "action": null,
+          "command": null,
+          "attack_type": "api_reconnaissance",
+          "severity": "LOW"
+        },
+        {
+          "timestamp": "2026-05-02T16:20:55.275138+00:00",
+          "service": "s3-service",
+          "method": "GET",
+          "path": "/",
+          "action": "list_buckets",
+          "command": null,
+          "attack_type": "bucket_enumeration",
+          "severity": "MEDIUM"
+        },
+        {
+          "timestamp": "2026-05-02T16:21:17.424875+00:00",
+          "service": "s3-service",
+          "method": "GET",
+          "path": "/prod-backups-2024",
+          "action": "list_objects",
+          "command": null,
+          "attack_type": "bucket_enumeration",
+          "severity": "MEDIUM"
+        },
+        {
+          "timestamp": "2026-05-02T16:21:33.194588+00:00",
+          "service": "s3-service",
+          "method": "GET",
+          "path": "/prod-backups-2024/backup.sql",
+          "action": "get_object",
+          "command": null,
+          "attack_type": "object_access_attempt",
+          "severity": "MEDIUM"
+        },
+        {
+          "timestamp": "2026-05-02T16:34:44.357266+00:00",
+          "service": "login-portal",
+          "method": "GET",
+          "path": "/login",
+          "action": "page_visit",
+          "command": null,
+          "attack_type": "login_page_visit",
+          "severity": "LOW"
+        },
+        {
+          "timestamp": "2026-05-02T16:35:21.360851+00:00",
+          "service": "login-portal",
+          "method": "POST",
+          "path": "/login",
+          "action": "credential_attempt",
+          "command": null,
+          "attack_type": "credential_attempt",
+          "severity": "HIGH"
+        },
+        {
+          "timestamp": "2026-05-02T16:36:24.149992+00:00",
+          "service": "login-portal",
+          "method": "POST",
+          "path": "/login",
+          "action": "credential_attempt",
+          "command": null,
+          "attack_type": "credential_attempt",
+          "severity": "HIGH"
+        },
+        {
+          "timestamp": "2026-05-02T16:36:40.084782+00:00",
+          "service": "login-portal",
+          "method": "POST",
+          "path": "/login",
+          "action": "credential_attempt",
+          "command": null,
+          "attack_type": "credential_attempt",
+          "severity": "HIGH"
+        },
+        {
+          "timestamp": "2026-05-02T16:41:36.626073+00:00",
+          "service": "login-portal",
+          "method": "POST",
+          "path": "/login",
+          "action": "credential_attempt",
+          "command": null,
+          "attack_type": "credential_attempt",
+          "severity": "HIGH"
+        }
+      ]
+    }
+  ]
+}

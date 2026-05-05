@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CloudTrap — Threat Monitor</title>
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg:       #020408;
+      --surface:  #080f18;
+      --border:   #0d2137;
+      --accent:   #00d4ff;
+      --red:      #ff3b57;
+      --yellow:   #f5c400;
+      --green:    #00e676;
+      --muted:    #3a5570;
+      --text:     #c8dff0;
+      --mono:     'Share Tech Mono', monospace;
+      --sans:     'Syne', sans-serif;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Animated grid background */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(var(--border) 1px, transparent 1px),
+        linear-gradient(90deg, var(--border) 1px, transparent 1px);
+      background-size: 40px 40px;
+      opacity: 0.4;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .container { position: relative; z-index: 1; max-width: 1400px; margin: 0 auto; padding: 24px; }
+
+    /* ── Header ── */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 32px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .logo-icon {
+      width: 36px; height: 36px;
+      border: 2px solid var(--accent);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px;
+      box-shadow: 0 0 12px var(--accent);
+    }
+
+    .logo-text { font-size: 22px; font-weight: 800; color: #fff; letter-spacing: -0.5px; }
+    .logo-text span { color: var(--accent); }
+
+    .header-right { display: flex; align-items: center; gap: 20px; }
+
+    .live-badge {
+      display: flex; align-items: center; gap: 6px;
+      font-family: var(--mono); font-size: 12px; color: var(--green);
+    }
+    .live-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--green);
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+    @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.4;transform:scale(.8)} }
+
+    .refresh-time { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+
+    /* ── Stat cards ── */
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 20px;
+      position: relative;
+      overflow: hidden;
+      transition: border-color .2s;
+    }
+    .stat-card:hover { border-color: var(--accent); }
+    .stat-card::after {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+    }
+    .stat-card.critical::after { background: var(--red); }
+    .stat-card.high::after     { background: var(--yellow); }
+    .stat-card.medium::after   { background: var(--accent); }
+    .stat-card.low::after      { background: var(--green); }
+
+    .stat-label { font-family: var(--mono); font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+    .stat-value { font-size: 36px; font-weight: 800; color: #fff; line-height: 1; }
+    .stat-card.critical .stat-value { color: var(--red); }
+    .stat-card.high .stat-value     { color: var(--yellow); }
+    .stat-card.medium .stat-value   { color: var(--accent); }
+    .stat-card.low .stat-value      { color: var(--green); }
+    .stat-sub { font-family: var(--mono); font-size: 11px; color: var(--muted); margin-top: 6px; }
+
+    /* ── Main grid ── */
+    .main-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 20px;
+    }
+
+    .panel-title {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .panel-title::before {
+      content: '';
+      display: inline-block;
+      width: 6px; height: 6px;
+      background: var(--accent);
+      border-radius: 50%;
+    }
+
+    .chart-wrap { position: relative; height: 220px; }
+
+    /* ── Attacker table ── */
+    .full-panel { grid-column: 1 / -1; }
+
+    table { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 12px; }
+    thead th {
+      text-align: left;
+      padding: 8px 12px;
+      color: var(--muted);
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      border-bottom: 1px solid var(--border);
+    }
+    tbody tr {
+      border-bottom: 1px solid var(--border);
+      transition: background .15s;
+    }
+    tbody tr:hover { background: rgba(0,212,255,0.04); }
+    tbody td { padding: 10px 12px; color: var(--text); }
+    tbody td:first-child { color: var(--accent); font-weight: 700; }
+
+    .sev-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .5px;
+    }
+    .sev-CRITICAL { background: rgba(255,59,87,.15); color: var(--red); border: 1px solid var(--red); }
+    .sev-HIGH     { background: rgba(245,196,0,.12); color: var(--yellow); border: 1px solid var(--yellow); }
+    .sev-MEDIUM   { background: rgba(0,212,255,.1);  color: var(--accent); border: 1px solid var(--accent); }
+    .sev-LOW      { background: rgba(0,230,118,.1);  color: var(--green);  border: 1px solid var(--green); }
+
+    .score-bar-wrap { display: flex; align-items: center; gap: 8px; }
+    .score-bar { height: 4px; border-radius: 2px; background: var(--accent); transition: width .4s; }
+
+    /* ── Empty / error state ── */
+    .empty {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 13px;
+    }
+    .empty .big { font-size: 32px; margin-bottom: 12px; }
+
+    /* ── Loading overlay ── */
+    #loader {
+      position: fixed; inset: 0;
+      background: var(--bg);
+      display: flex; align-items: center; justify-content: center;
+      flex-direction: column; gap: 16px;
+      z-index: 999;
+      transition: opacity .4s;
+    }
+    #loader.hidden { opacity: 0; pointer-events: none; }
+    .loader-text { font-family: var(--mono); font-size: 13px; color: var(--accent); }
+    .loader-bar { width: 200px; height: 2px; background: var(--border); border-radius: 2px; overflow: hidden; }
+    .loader-bar-inner { height: 100%; background: var(--accent); animation: load 1.2s ease-in-out infinite; }
+    @keyframes load { 0%{width:0;margin-left:0} 50%{width:60%;margin-left:20%} 100%{width:0;margin-left:100%} }
+  </style>
+</head>
+<body>
+
+<div id="loader">
+  <div class="logo-icon">🪤</div>
+  <div class="loader-text">INITIALIZING CLOUDTRAP...</div>
+  <div class="loader-bar"><div class="loader-bar-inner"></div></div>
+</div>
+
+<div class="container">
+  <header>
+    <div class="logo">
+      <div class="logo-icon">🪤</div>
+      <div class="logo-text">Cloud<span>Trap</span></div>
+    </div>
+    <div class="header-right">
+      <div class="live-badge"><div class="live-dot"></div>LIVE MONITORING</div>
+      <div class="refresh-time" id="refresh-time">Last updated: —</div>
+    </div>
+  </header>
+
+  <!-- Stat cards -->
+  <div class="stats-row">
+    <div class="stat-card critical">
+      <div class="stat-label">Critical Events</div>
+      <div class="stat-value" id="cnt-critical">0</div>
+      <div class="stat-sub">Requires immediate attention</div>
+    </div>
+    <div class="stat-card high">
+      <div class="stat-label">High Severity</div>
+      <div class="stat-value" id="cnt-high">0</div>
+      <div class="stat-sub">Elevated threat level</div>
+    </div>
+    <div class="stat-card medium">
+      <div class="stat-label">Total Events</div>
+      <div class="stat-value" id="cnt-total">0</div>
+      <div class="stat-sub">Across all honeypots</div>
+    </div>
+    <div class="stat-card low">
+      <div class="stat-label">Unique Attackers</div>
+      <div class="stat-value" id="cnt-attackers">0</div>
+      <div class="stat-sub">Distinct source IPs</div>
+    </div>
+  </div>
+
+  <!-- Charts row -->
+  <div class="main-grid">
+    <div class="panel">
+      <div class="panel-title">Attack Types</div>
+      <div class="chart-wrap"><canvas id="attackChart"></canvas></div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">Severity Breakdown</div>
+      <div class="chart-wrap"><canvas id="severityChart"></canvas></div>
+    </div>
+  </div>
+
+  <!-- Attacker table -->
+  <div class="panel">
+    <div class="panel-title">Attacker Profiles — Ranked by Threat Score</div>
+    <div id="attacker-table-wrap"></div>
+  </div>
+</div>
+
+<script>
+  const REFRESH_MS = 60_000; // re-fetch every 60 seconds
+  let attackChart, severityChart;
+
+  const COLORS = {
+    CRITICAL: '#ff3b57',
+    HIGH:     '#f5c400',
+    MEDIUM:   '#00d4ff',
+    LOW:      '#00e676',
+  };
+
+  const CHART_DEFAULTS = {
+    font: { family: "'Share Tech Mono', monospace" },
+    color: '#3a5570',
+  };
+
+  async function fetchReport() {
+    const res = await fetch('/api/report');
+    if (!res.ok) throw new Error('No report yet');
+    return res.json();
+  }
+
+  function setText(id, val) {
+    document.getElementById(id).textContent = val;
+  }
+
+  function initCharts() {
+    Chart.defaults.font.family = CHART_DEFAULTS.font.family;
+    Chart.defaults.color = CHART_DEFAULTS.color;
+
+    const baseOpts = {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+    };
+
+    attackChart = new Chart(document.getElementById('attackChart'), {
+      type: 'bar',
+      data: { labels: [], datasets: [{ data: [], backgroundColor: '#00d4ff33', borderColor: '#00d4ff', borderWidth: 1, borderRadius: 4 }] },
+      options: {
+        ...baseOpts,
+        indexAxis: 'y',
+        scales: {
+          x: { grid: { color: '#0d2137' }, ticks: { color: '#3a5570' } },
+          y: { grid: { display: false }, ticks: { color: '#c8dff0', font: { size: 11 } } },
+        },
+      },
+    });
+
+    severityChart = new Chart(document.getElementById('severityChart'), {
+      type: 'doughnut',
+      data: {
+        labels: ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'],
+        datasets: [{
+          data: [0, 0, 0, 0],
+          backgroundColor: ['#ff3b5733', '#f5c40033', '#00d4ff33', '#00e67633'],
+          borderColor:     ['#ff3b57',   '#f5c400',   '#00d4ff',   '#00e676'],
+          borderWidth: 2,
+        }],
+      },
+      options: {
+        ...baseOpts,
+        cutout: '65%',
+        plugins: {
+          legend: {
+            display: true,
+            position: 'right',
+            labels: { color: '#c8dff0', font: { size: 11 }, padding: 12, boxWidth: 12 },
+          },
+        },
+      },
+    });
+  }
+
+  function updateCharts(report) {
+    // Attack types bar chart
+    const summary = report.attack_summary || {};
+    const sorted = Object.entries(summary).sort((a, b) => b[1] - a[1]).slice(0, 8);
+    attackChart.data.labels   = sorted.map(([k]) => k.replace(/_/g, ' '));
+    attackChart.data.datasets[0].data = sorted.map(([, v]) => v);
+    attackChart.update();
+
+    // Severity doughnut
+    const sev = report.severity_counts || {};
+    severityChart.data.datasets[0].data = [
+      sev.CRITICAL || 0,
+      sev.HIGH     || 0,
+      sev.MEDIUM   || 0,
+      sev.LOW      || 0,
+    ];
+    severityChart.update();
+  }
+
+  function renderTable(attackers) {
+    const wrap = document.getElementById('attacker-table-wrap');
+    if (!attackers || attackers.length === 0) {
+      wrap.innerHTML = '<div class="empty"><div class="big">📡</div>No attackers logged yet — honeypots are listening.</div>';
+      return;
+    }
+
+    const maxScore = attackers[0]?.threat_score || 1;
+
+    const rows = attackers.slice(0, 20).map(a => {
+      const pct = Math.round((a.threat_score / maxScore) * 100);
+      const types = (a.attack_types || []).join(', ') || '—';
+      return `
+        <tr>
+          <td>${a.ip}</td>
+          <td><span class="sev-badge sev-${a.top_severity}">${a.top_severity}</span></td>
+          <td>
+            <div class="score-bar-wrap">
+              <div class="score-bar" style="width:${pct}px; max-width:80px"></div>
+              <span>${a.threat_score}</span>
+            </div>
+          </td>
+          <td>${a.event_count}</td>
+          <td style="color:#3a5570; font-size:11px">${types}</td>
+        </tr>`;
+    }).join('');
+
+    wrap.innerHTML = `
+      <table>
+        <thead>
+          <tr>
+            <th>Source IP</th>
+            <th>Top Severity</th>
+            <th>Threat Score</th>
+            <th>Events</th>
+            <th>Attack Types</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>`;
+  }
+
+  async function refresh() {
+    try {
+      const report = await fetchReport();
+      const sev    = report.severity_counts || {};
+
+      setText('cnt-critical',  sev.CRITICAL  || 0);
+      setText('cnt-high',      sev.HIGH       || 0);
+      setText('cnt-total',     report.total_events || 0);
+      setText('cnt-attackers', (report.attackers || []).length);
+      setText('refresh-time',  'Last updated: ' + new Date().toLocaleTimeString());
+
+      updateCharts(report);
+      renderTable(report.attackers || []);
+    } catch (e) {
+      document.getElementById('attacker-table-wrap').innerHTML =
+        '<div class="empty"><div class="big">⚠️</div>Could not load report. Is the analyzer running?</div>';
+    }
+  }
+
+  // Boot
+  initCharts();
+  refresh().finally(() => {
+    document.getElementById('loader').classList.add('hidden');
+  });
+  setInterval(refresh, REFRESH_MS);
+</script>
+</body>
+</html>
