@@ -116,6 +116,7 @@ services:
       dockerfile: Dockerfile
     container_name: cloudtrap-dashboard
     ports:
+      - "443:5003"
       - "5003:5003"
     environment:
       - POSTGRES_HOST=postgres
@@ -132,6 +133,28 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
+
+  log-forwarder:
+    build:
+      context: ./services/log-forwarder
+      dockerfile: Dockerfile
+    container_name: cloudtrap-log-forwarder
+    volumes:
+      - api-logs:/app/logs/api-service
+      - s3-logs:/app/logs/s3-service
+      - login-logs:/app/logs/login-portal
+    environment:
+      - AWS_REGION=eu-north-1
+      - CLOUDWATCH_LOG_GROUP=cloudtrap-logs
+      - POLL_INTERVAL=30
+      - API_LOG_FILE=/app/logs/api-service/logs.jsonl
+      - S3_LOG_FILE=/app/logs/s3-service/logs.jsonl
+      - LOGIN_LOG_FILE=/app/logs/login-portal/logs.jsonl
+    restart: always
+    depends_on:
+      - api-service
+      - s3-service
+      - login-portal
 
 volumes:
   api-logs:

@@ -1,425 +1,577 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CloudTrap — Threat Monitor</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CloudTrap</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:#0a0e1a;color:#e2e8f0;font-family:'Segoe UI',system-ui,sans-serif;min-height:100vh}
+  :root{
+    --red:#ef4444;--orange:#f97316;--yellow:#eab308;--green:#22c55e;
+    --blue:#3b82f6;--cyan:#06b6d4;--purple:#a855f7;
+    --card:#111827;--card2:#1a2235;--border:#1e2d45;
+    --text:#e2e8f0;--muted:#64748b
+  }
+  .header{display:flex;align-items:center;justify-content:space-between;padding:16px 28px;background:#0d1321;border-bottom:1px solid var(--border)}
+  .logo{display:flex;align-items:center;gap:10px}
+  .logo-icon{width:36px;height:36px;background:linear-gradient(135deg,#3b82f6,#06b6d4);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px}
+  .logo-text{font-size:20px;font-weight:700;letter-spacing:-0.5px}
+  .logo-text span{color:#06b6d4}
+  .live-badge{display:flex;align-items:center;gap:6px;background:#0f2a1a;border:1px solid #22c55e44;border-radius:20px;padding:5px 12px;font-size:12px;color:#22c55e}
+  .live-dot{width:7px;height:7px;background:#22c55e;border-radius:50%;animation:pulse 1.5s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+  .header-right{display:flex;align-items:center;gap:16px;font-size:13px;color:var(--muted)}
+  .role-badge{display:flex;align-items:center;gap:4px;padding:4px 10px;border-radius:99px;font-size:11px;font-weight:600}
+  .role-badge.admin{background:#0f2040;color:#3b82f6;border:1px solid #3b82f644}
+  .role-badge.analyst{background:#0f2a1a;color:#22c55e;border:1px solid #22c55e44}
+  .btn-export{display:flex;align-items:center;gap:6px;padding:6px 14px;background:var(--cyan);color:#000;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;transition:opacity .2s}
+  .btn-export:hover{opacity:.85}
+  .btn-logout{display:flex;align-items:center;gap:6px;padding:6px 12px;background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:8px;font-size:11px;cursor:pointer;text-decoration:none;transition:border-color .2s}
+  .btn-logout:hover{border-color:var(--red);color:var(--red)}
+  .main{padding:24px 28px;display:flex;flex-direction:column;gap:20px}
+  .stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+  .stat-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:18px 20px;position:relative;overflow:hidden;transition:transform .2s}
+  .stat-card:hover{transform:translateY(-2px)}
+  .stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px}
+  .stat-card.red::before{background:var(--red)}
+  .stat-card.orange::before{background:var(--orange)}
+  .stat-card.cyan::before{background:var(--cyan)}
+  .stat-card.green::before{background:var(--green)}
+  .stat-label{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:8px}
+  .stat-value{font-size:32px;font-weight:700;line-height:1;margin-bottom:6px}
+  .stat-card.red .stat-value{color:var(--red)}
+  .stat-card.orange .stat-value{color:var(--orange)}
+  .stat-card.cyan .stat-value{color:var(--cyan)}
+  .stat-card.green .stat-value{color:var(--green)}
+  .stat-sub{font-size:12px;color:var(--muted)}
+  .stat-icon{position:absolute;right:18px;top:18px;font-size:28px;opacity:0.15}
+  .row{display:grid;gap:14px}
+  .row-2{grid-template-columns:1fr 1fr}
+  .row-3{grid-template-columns:1.4fr 1fr 1fr}
+  .panel{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px}
+  .panel-title{font-size:12px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:16px;display:flex;align-items:center;gap:8px}
+  .panel-title::before{content:'';width:8px;height:8px;border-radius:50%;background:var(--cyan);display:inline-block}
+  .bar-row{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+  .bar-label{font-size:12px;color:var(--muted);width:140px;flex-shrink:0;text-align:right}
+  .bar-track{flex:1;background:#1e2d45;border-radius:4px;height:22px;overflow:hidden;position:relative}
+  .bar-fill{height:100%;border-radius:4px;display:flex;align-items:center;justify-content:flex-end;padding-right:8px;font-size:11px;font-weight:600;transition:width 1.5s ease}
+  .bar-fill.cred{background:linear-gradient(90deg,#1e40af,#3b82f6)}
+  .bar-fill.api{background:linear-gradient(90deg,#0e7490,#06b6d4)}
+  .bar-fill.bucket{background:linear-gradient(90deg,#7c3aed,#a855f7)}
+  .bar-fill.obj{background:linear-gradient(90deg,#166534,#22c55e)}
+  .donut-wrap{display:flex;align-items:center;gap:20px}
+  .donut-legend{display:flex;flex-direction:column;gap:10px;flex:1}
+  .legend-item{display:flex;align-items:center;gap:8px;font-size:12px}
+  .legend-dot{width:10px;height:10px;border-radius:3px;flex-shrink:0}
+  .legend-label{color:var(--muted);flex:1}
+  .legend-val{font-weight:600}
+  .feed{display:flex;flex-direction:column;gap:8px;max-height:350px;overflow-y:auto}
+  .feed::-webkit-scrollbar{width:4px}
+  .feed::-webkit-scrollbar-track{background:transparent}
+  .feed::-webkit-scrollbar-thumb{background:#1e2d45;border-radius:4px}
+  .feed-item{display:flex;align-items:flex-start;gap:10px;padding:10px 12px;background:var(--card2);border-radius:10px;border-left:3px solid transparent;font-size:12px;animation:fadeIn .4s ease}
+  @keyframes fadeIn{from{opacity:0;transform:translateX(-8px)}to{opacity:1;transform:none}}
+  .feed-item.critical{border-color:var(--red)}
+  .feed-item.high{border-color:var(--orange)}
+  .feed-item.medium{border-color:var(--yellow)}
+  .feed-item.low{border-color:var(--green)}
+  .feed-time{color:var(--muted);font-size:10px;white-space:nowrap;margin-top:1px}
+  .feed-content{flex:1}
+  .feed-ip{font-weight:600;color:var(--cyan);font-size:11px}
+  .feed-msg{color:#94a3b8;margin-top:2px}
+  .sev-badge{font-size:10px;padding:2px 7px;border-radius:4px;font-weight:700;letter-spacing:.5px;flex-shrink:0}
+  .sev-badge.critical{background:#3b0a0a;color:var(--red)}
+  .sev-badge.high{background:#431407;color:var(--orange)}
+  .sev-badge.medium{background:#422006;color:var(--yellow)}
+  .sev-badge.low{background:#052e16;color:var(--green)}
+  .attacker-table{width:100%;border-collapse:collapse;font-size:12px}
+  .attacker-table th{text-align:left;color:var(--muted);font-weight:500;padding:0 0 10px;font-size:11px;text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--border)}
+  .attacker-table td{padding:10px 0;border-bottom:1px solid #111827;vertical-align:middle}
+  .attacker-table tr:last-child td{border-bottom:none}
+  .ip-cell{color:var(--cyan);font-weight:600;font-family:monospace}
+  .score-bar{height:6px;border-radius:3px;background:#1e2d45;overflow:hidden;width:80px}
+  .score-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--blue),var(--cyan))}
+  #worldmap{width:100%;height:420px;background:#0d1321;border-radius:10px;overflow:hidden;z-index:1}
+  .services{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+  .svc-card{background:var(--card2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;display:flex;align-items:center;gap:10px}
+  .svc-icon{font-size:22px;color:var(--cyan)}
+  .svc-name{font-size:12px;font-weight:600}
+  .svc-port{font-size:11px;color:var(--muted)}
+  .svc-status{margin-left:auto;display:flex;align-items:center;gap:4px;font-size:11px;color:var(--green)}
+  .svc-status-dot{width:6px;height:6px;background:var(--green);border-radius:50%;animation:pulse 1.5s infinite}
+  .toast{position:fixed;bottom:24px;right:24px;background:#0f2a1a;border:1px solid #22c55e44;color:#22c55e;padding:12px 16px;border-radius:10px;font-size:12px;z-index:999;animation:fadeIn .3s ease;display:none}
 
-  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  .cloud-filter{display:flex;align-items:center;gap:6px}
+  .cloud-filter select{
+    background:#0d1321;color:#e2e8f0;border:1px solid var(--border);
+    border-radius:6px;padding:4px 8px;font-size:11px;cursor:pointer;outline:none
+  }
+  .cloud-filter select:focus{border-color:var(--cyan)}
+  .cloud-filter label{font-size:11px;color:var(--muted)}
 
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
-  <style>
-    :root {
-      --bg:#020408; --surface:#080f18; --border:#0d2137; --accent:#00d4ff;
-      --red:#ff3b57; --yellow:#f5c400; --green:#00e676; --muted:#3a5570;
-      --text:#c8dff0; --mono:'Share Tech Mono', monospace; --sans:'Syne', sans-serif;
-    }
-
-    * { box-sizing:border-box; margin:0; padding:0; }
-
-    body {
-      background:var(--bg); color:var(--text); font-family:var(--sans);
-      min-height:100vh; overflow-x:hidden;
-    }
-
-    body::before {
-      content:''; position:fixed; inset:0;
-      background-image:
-        linear-gradient(var(--border) 1px, transparent 1px),
-        linear-gradient(90deg, var(--border) 1px, transparent 1px);
-      background-size:40px 40px; opacity:.4; pointer-events:none; z-index:0;
-    }
-
-    .container { position:relative; z-index:1; max-width:1400px; margin:0 auto; padding:24px; }
-
-    header {
-      display:flex; align-items:center; justify-content:space-between;
-      margin-bottom:32px; padding-bottom:20px; border-bottom:1px solid var(--border);
-    }
-
-    .logo { display:flex; align-items:center; gap:12px; }
-    .logo-icon {
-      width:36px; height:36px; border:2px solid var(--accent); border-radius:8px;
-      display:flex; align-items:center; justify-content:center; font-size:18px;
-      box-shadow:0 0 12px var(--accent);
-    }
-    .logo-text { font-size:22px; font-weight:800; color:#fff; letter-spacing:-.5px; }
-    .logo-text span { color:var(--accent); }
-
-    .header-right { display:flex; align-items:center; gap:20px; }
-    .live-badge { display:flex; align-items:center; gap:6px; font-family:var(--mono); font-size:12px; color:var(--green); }
-    .live-dot { width:8px; height:8px; border-radius:50%; background:var(--green); animation:pulse 1.5s ease-in-out infinite; }
-    @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.4;transform:scale(.8)} }
-    .refresh-time { font-family:var(--mono); font-size:11px; color:var(--muted); }
-
-    .stats-row {
-      display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:24px;
-    }
-
-    .stat-card {
-      background:var(--surface); border:1px solid var(--border); border-radius:10px;
-      padding:20px; position:relative; overflow:hidden; transition:border-color .2s;
-    }
-    .stat-card:hover { border-color:var(--accent); }
-    .stat-card::after { content:''; position:absolute; top:0; left:0; right:0; height:2px; }
-    .stat-card.critical::after { background:var(--red); }
-    .stat-card.high::after { background:var(--yellow); }
-    .stat-card.medium::after { background:var(--accent); }
-    .stat-card.low::after { background:var(--green); }
-
-    .stat-label { font-family:var(--mono); font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:1px; margin-bottom:8px; }
-    .stat-value { font-size:36px; font-weight:800; color:#fff; line-height:1; }
-    .stat-card.critical .stat-value { color:var(--red); }
-    .stat-card.high .stat-value { color:var(--yellow); }
-    .stat-card.medium .stat-value { color:var(--accent); }
-    .stat-card.low .stat-value { color:var(--green); }
-    .stat-sub { font-family:var(--mono); font-size:11px; color:var(--muted); margin-top:6px; }
-
-    .main-grid {
-      display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px;
-    }
-
-    .panel {
-      background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:20px;
-      margin-bottom:16px;
-    }
-
-    .full-panel { grid-column:1 / -1; }
-
-    .panel-title {
-      font-family:var(--mono); font-size:11px; color:var(--accent); text-transform:uppercase;
-      letter-spacing:2px; margin-bottom:16px; display:flex; align-items:center; gap:8px;
-    }
-    .panel-title::before {
-      content:''; display:inline-block; width:6px; height:6px; background:var(--accent); border-radius:50%;
-    }
-
-    .chart-wrap { position:relative; height:220px; }
-
-    .map-wrap {
-      height:420px; width:100%; border-radius:10px; overflow:hidden;
-      border:1px solid var(--border); box-shadow:0 0 18px rgba(0,212,255,.08);
-    }
-
-    #attack-map { height:100%; width:100%; background:#020408; }
-
-    table { width:100%; border-collapse:collapse; font-family:var(--mono); font-size:12px; }
-    thead th {
-      text-align:left; padding:8px 12px; color:var(--muted); font-size:10px;
-      text-transform:uppercase; letter-spacing:1px; border-bottom:1px solid var(--border);
-    }
-    tbody tr { border-bottom:1px solid var(--border); transition:background .15s; }
-    tbody tr:hover { background:rgba(0,212,255,.04); }
-    tbody td { padding:10px 12px; color:var(--text); }
-    tbody td:first-child { color:var(--accent); font-weight:700; }
-
-    .sev-badge {
-      display:inline-block; padding:2px 8px; border-radius:4px;
-      font-size:10px; font-weight:700; letter-spacing:.5px;
-    }
-    .sev-CRITICAL { background:rgba(255,59,87,.15); color:var(--red); border:1px solid var(--red); }
-    .sev-HIGH { background:rgba(245,196,0,.12); color:var(--yellow); border:1px solid var(--yellow); }
-    .sev-MEDIUM { background:rgba(0,212,255,.1); color:var(--accent); border:1px solid var(--accent); }
-    .sev-LOW { background:rgba(0,230,118,.1); color:var(--green); border:1px solid var(--green); }
-
-    .score-bar-wrap { display:flex; align-items:center; gap:8px; }
-    .score-bar { height:4px; border-radius:2px; background:var(--accent); transition:width .4s; }
-
-    .empty {
-      text-align:center; padding:60px 20px; color:var(--muted);
-      font-family:var(--mono); font-size:13px;
-    }
-    .empty .big { font-size:32px; margin-bottom:12px; }
-
-    #loader {
-      position:fixed; inset:0; background:var(--bg);
-      display:flex; align-items:center; justify-content:center; flex-direction:column; gap:16px;
-      z-index:999; transition:opacity .4s;
-    }
-    #loader.hidden { opacity:0; pointer-events:none; }
-    .loader-text { font-family:var(--mono); font-size:13px; color:var(--accent); }
-    .loader-bar { width:200px; height:2px; background:var(--border); border-radius:2px; overflow:hidden; }
-    .loader-bar-inner { height:100%; background:var(--accent); animation:load 1.2s ease-in-out infinite; }
-    @keyframes load { 0%{width:0;margin-left:0} 50%{width:60%;margin-left:20%} 100%{width:0;margin-left:100%} }
-  </style>
+  @media(max-width:1100px){.row-3{grid-template-columns:1fr 1fr}.row-2{grid-template-columns:1fr}.stats-grid{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:700px){.row-3{grid-template-columns:1fr}.stats-grid{grid-template-columns:1fr}.header{flex-wrap:wrap;gap:10px}}
+</style>
 </head>
-
 <body>
 
-<div id="loader">
-  <div class="logo-icon">🪤</div>
-  <div class="loader-text">INITIALIZING CLOUDTRAP...</div>
-  <div class="loader-bar"><div class="loader-bar-inner"></div></div>
+<div class="header">
+  <div class="logo">
+    <div class="logo-icon">🪤</div>
+    <div class="logo-text">Cloud<span>Trap</span></div>
+  </div>
+  <div class="live-badge">
+    <div class="live-dot"></div>
+    LIVE MONITORING
+  </div>
+  <div class="header-right">
+    <span id="clock"></span>
+    <span>|</span>
+    <span>AWS EC2 · eu-north-1</span>
+    <span>|</span>
+    <div class="cloud-filter">
+      <label>Cloud:</label>
+      <select id="cloud-filter" onchange="onCloudFilterChange()">
+        <option value="all">All Providers</option>
+        <option value="aws">AWS</option>
+        <option value="gcp">GCP</option>
+      </select>
+    </div>
+    <span>|</span>
+    <span class="role-badge" id="role-badge">loading...</span>
+    <button class="btn-export" id="btn-export" onclick="exportLogs()" style="display:none" title="Download raw logs as JSON">
+      <i class="ti ti-download"></i> Export Logs
+    </button>
+    <a href="/logout" class="btn-logout">
+      <i class="ti ti-logout"></i> Logout
+    </a>
+  </div>
 </div>
 
-<div class="container">
-  <header>
-    <div class="logo">
-      <div class="logo-icon">🪤</div>
-      <div class="logo-text">Cloud<span>Trap</span></div>
-    </div>
-    <div class="header-right">
-      <div class="live-badge"><div class="live-dot"></div>LIVE MONITORING</div>
-      <div class="refresh-time" id="refresh-time">Last updated: —</div>
-    </div>
-  </header>
+<div class="main">
 
-  <div class="stats-row">
-    <div class="stat-card critical">
+  <!-- STAT CARDS -->
+  <div class="stats-grid">
+    <div class="stat-card red">
       <div class="stat-label">Critical Events</div>
-      <div class="stat-value" id="cnt-critical">0</div>
-      <div class="stat-sub">Requires immediate attention</div>
+      <div class="stat-value" id="s-critical">—</div>
+      <div class="stat-sub">Requires immediate action</div>
+      <i class="ti ti-alert-triangle stat-icon"></i>
     </div>
-    <div class="stat-card high">
+    <div class="stat-card orange">
       <div class="stat-label">High Severity</div>
-      <div class="stat-value" id="cnt-high">0</div>
+      <div class="stat-value" id="s-high">—</div>
       <div class="stat-sub">Elevated threat level</div>
+      <i class="ti ti-flame stat-icon"></i>
     </div>
-    <div class="stat-card medium">
+    <div class="stat-card cyan">
       <div class="stat-label">Total Events</div>
-      <div class="stat-value" id="cnt-total">0</div>
+      <div class="stat-value" id="s-total">—</div>
       <div class="stat-sub">Across all honeypots</div>
+      <i class="ti ti-activity stat-icon"></i>
     </div>
-    <div class="stat-card low">
+    <div class="stat-card green">
       <div class="stat-label">Unique Attackers</div>
-      <div class="stat-value" id="cnt-attackers">0</div>
+      <div class="stat-value" id="s-attackers">—</div>
       <div class="stat-sub">Distinct source IPs</div>
+      <i class="ti ti-user-scan stat-icon"></i>
     </div>
   </div>
 
-  <div class="main-grid">
+  <!-- ROW 2: CHARTS + SERVICE STATUS -->
+  <div class="row row-3">
     <div class="panel">
-      <div class="panel-title">Attack Types</div>
-      <div class="chart-wrap"><canvas id="attackChart"></canvas></div>
+      <div class="panel-title">Attack types</div>
+      <div id="attack-bars"></div>
     </div>
     <div class="panel">
-      <div class="panel-title">Severity Breakdown</div>
-      <div class="chart-wrap"><canvas id="severityChart"></canvas></div>
+      <div class="panel-title">Severity breakdown</div>
+      <div class="donut-wrap">
+        <canvas id="donut" width="120" height="120"></canvas>
+        <div class="donut-legend" id="donut-legend"></div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">Honeypot services</div>
+      <div class="services" style="grid-template-columns:1fr;gap:8px">
+        <div class="svc-card">
+          <i class="ti ti-api svc-icon"></i>
+          <div><div class="svc-name">REST API</div><div class="svc-port">Port 5000</div></div>
+          <div class="svc-status"><div class="svc-status-dot"></div>Online</div>
+        </div>
+        <div class="svc-card">
+          <i class="ti ti-bucket svc-icon" style="color:#a855f7"></i>
+          <div><div class="svc-name">S3 Storage</div><div class="svc-port">Port 5001</div></div>
+          <div class="svc-status"><div class="svc-status-dot"></div>Online</div>
+        </div>
+        <div class="svc-card">
+          <i class="ti ti-lock svc-icon" style="color:#f97316"></i>
+          <div><div class="svc-name">Login Portal</div><div class="svc-port">Port 5002</div></div>
+          <div class="svc-status"><div class="svc-status-dot"></div>Online</div>
+        </div>
+        <div class="svc-card">
+          <i class="ti ti-layout-dashboard svc-icon" style="color:#22c55e"></i>
+          <div><div class="svc-name">Dashboard</div><div class="svc-port">Port 5003</div></div>
+          <div class="svc-status"><div class="svc-status-dot"></div>Online</div>
+        </div>
+      </div>
     </div>
   </div>
 
-  <div class="panel full-panel">
-    <div class="panel-title">World Attack Map</div>
-    <div class="map-wrap">
-      <div id="attack-map"></div>
+  <!-- ROW 3: MAP + LIVE FEED -->
+  <div class="row row-2">
+    <div class="panel">
+      <div class="panel-title">World attack map</div>
+      <div id="worldmap"></div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">Live event feed</div>
+      <div class="feed" id="feed">
+        <div style="text-align:center;color:var(--muted);padding:40px 0;font-size:12px">Loading real events…</div>
+      </div>
     </div>
   </div>
 
+  <!-- ROW 4: ATTACKER PROFILES -->
   <div class="panel">
-    <div class="panel-title">Attacker Profiles — Ranked by Threat Score</div>
+    <div class="panel-title">Attacker profiles — ranked by threat score</div>
     <div id="attacker-table-wrap"></div>
   </div>
+
 </div>
 
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
-  const REFRESH_MS = 60_000;
-  let attackChart, severityChart, attackMap, attackMarkers = [];
+// ==================== GLOBAL STATE ====================
+let currentRole = null;
 
-  const COLORS = {
-    CRITICAL:'#ff3b57',
-    HIGH:'#f5c400',
-    MEDIUM:'#00d4ff',
-    LOW:'#00e676',
-  };
+// ==================== CLOCK ====================
+function tick(){
+  document.getElementById('clock').textContent = new Date().toLocaleTimeString();
+}
+tick(); setInterval(tick, 1000);
 
-  async function fetchReport() {
-    const res = await fetch('/api/report');
-    if (!res.ok) throw new Error('No report yet');
-    return res.json();
+// ==================== TOAST ====================
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.display = 'block';
+  setTimeout(() => { t.style.display = 'none'; }, 3000);
+}
+
+// ==================== API ENDPOINTS ====================
+let API = '/api/report';
+let MAP_API = '/api/attack-map';
+const EVENTS_API = '/api/events';
+const SEV_ORDER = ['CRITICAL','HIGH','MEDIUM','LOW'];
+
+let donutChart = null;
+let attackMap = null;
+let attackMarkers = [];
+
+async function fetchReport() {
+  let url = API;
+  if (currentCloudFilter !== 'all') {
+    url = API + '?cloud_provider=' + currentCloudFilter;
   }
+  const res = await fetch(url);
+  if (res.status === 401) { window.location = '/login'; return null; }
+  if (!res.ok) throw new Error('API not available');
+  return res.json();
+}
 
-  function setText(id, val) {
-    document.getElementById(id).textContent = val;
-  }
+async function fetchMapData() {
+  const res = await fetch(MAP_API);
+  if (res.status === 401) { window.location = '/login'; return null; }
+  if (!res.ok) return [];
+  return res.json();
+}
 
-  function initCharts() {
-    Chart.defaults.font.family = "'Share Tech Mono', monospace";
-    Chart.defaults.color = '#3a5570';
-
-    const baseOpts = {
-      responsive:true,
-      maintainAspectRatio:false,
-      plugins:{ legend:{ display:false } },
-    };
-
-    attackChart = new Chart(document.getElementById('attackChart'), {
-      type:'bar',
-      data:{ labels:[], datasets:[{ data:[], backgroundColor:'#00d4ff33', borderColor:'#00d4ff', borderWidth:1, borderRadius:4 }] },
-      options:{
-        ...baseOpts,
-        indexAxis:'y',
-        scales:{
-          x:{ grid:{ color:'#0d2137' }, ticks:{ color:'#3a5570' } },
-          y:{ grid:{ display:false }, ticks:{ color:'#c8dff0', font:{ size:11 } } },
-        },
-      },
-    });
-
-    severityChart = new Chart(document.getElementById('severityChart'), {
-      type:'doughnut',
-      data:{
-        labels:['CRITICAL','HIGH','MEDIUM','LOW'],
-        datasets:[{
-          data:[0,0,0,0],
-          backgroundColor:['#ff3b5733','#f5c40033','#00d4ff33','#00e67633'],
-          borderColor:['#ff3b57','#f5c400','#00d4ff','#00e676'],
-          borderWidth:2,
-        }],
-      },
-      options:{
-        ...baseOpts,
-        cutout:'65%',
-        plugins:{
-          legend:{
-            display:true,
-            position:'right',
-            labels:{ color:'#c8dff0', font:{ size:11 }, padding:12, boxWidth:12 },
-          },
-        },
-      },
-    });
-  }
-
-  function initMap() {
-    attackMap = L.map('attack-map', {
-      zoomControl:true,
-      attributionControl:true,
-    }).setView([20, 0], 2);
-
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution:'&copy; OpenStreetMap contributors',
-    }).addTo(attackMap);
-  }
-
-  async function updateAttackMap() {
-    const res = await fetch('/api/attack-map');
-    if (!res.ok) return;
-
-    const attacks = await res.json();
-
-    attackMarkers.forEach(marker => attackMap.removeLayer(marker));
-    attackMarkers = [];
-
-    attacks.forEach(attack => {
-      if (!attack.latitude || !attack.longitude) return;
-
-      const color = COLORS[attack.severity] || COLORS.LOW;
-
-      const marker = L.circleMarker([attack.latitude, attack.longitude], {
-        radius:8,
-        color:color,
-        fillColor:color,
-        fillOpacity:.75,
-        weight:2,
-      }).addTo(attackMap);
-
-      marker.bindPopup(`
-        <b>${attack.source_ip}</b><br>
-        ${attack.city || 'Unknown'}, ${attack.country || 'Unknown'}<br>
-        ISP: ${attack.isp || 'Unknown'}<br>
-        Attack: ${attack.attack_type || 'Unknown'}<br>
-        Severity: ${attack.severity || 'Unknown'}<br>
-        Events: ${attack.event_count || 0}
-      `);
-
-      attackMarkers.push(marker);
-    });
-  }
-
-  function updateCharts(report) {
-    const summary = report.attack_summary || {};
-    const sorted = Object.entries(summary).sort((a,b) => b[1] - a[1]).slice(0,8);
-
-    attackChart.data.labels = sorted.map(([k]) => k.replace(/_/g,' '));
-    attackChart.data.datasets[0].data = sorted.map(([,v]) => v);
-    attackChart.update();
-
-    const sev = report.severity_counts || {};
-    severityChart.data.datasets[0].data = [
-      sev.CRITICAL || 0,
-      sev.HIGH || 0,
-      sev.MEDIUM || 0,
-      sev.LOW || 0,
-    ];
-    severityChart.update();
-  }
-
-  function renderTable(attackers) {
-    const wrap = document.getElementById('attacker-table-wrap');
-
-    if (!attackers || attackers.length === 0) {
-      wrap.innerHTML = '<div class="empty"><div class="big">📡</div>No attackers logged yet — honeypots are listening.</div>';
-      return;
+// ==================== EXPORT LOGS (Admin only) ====================
+async function exportLogs() {
+  showToast('Fetching logs for export…');
+  try {
+    // Fetch all events (paginated)
+    let allEvents = [];
+    let page = 1;
+    while (true) {
+      const res = await fetch(`${EVENTS_API}?page=${page}&limit=100`);
+      if (!res.ok) break;
+      const data = await res.json();
+      if (!data.events || data.events.length === 0) break;
+      allEvents = allEvents.concat(data.events);
+      if (data.events.length < 100) break;
+      page++;
     }
+    
+    const blob = new Blob([JSON.stringify(allEvents, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `cloudtrap-export-${new Date().toISOString().slice(0,10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast(`Exported ${allEvents.length.toLocaleString()} events`);
+  } catch (e) {
+    showToast('Export failed');
+  }
+}
 
-    const maxScore = attackers[0]?.threat_score || 1;
+// ==================== UPDATE ROLE UI ====================
+function updateRoleUI(role) {
+  currentRole = role;
+  const badge = document.getElementById('role-badge');
+  const btn = document.getElementById('btn-export');
+  
+  if (role === 'admin') {
+    badge.textContent = '🔒 ADMIN';
+    badge.className = 'role-badge admin';
+    btn.style.display = 'flex';
+  } else {
+    badge.textContent = '👁 ANALYST';
+    badge.className = 'role-badge analyst';
+    btn.style.display = 'none';
+  }
+}
 
-    const rows = attackers.slice(0,20).map(a => {
-      const pct = Math.round((a.threat_score / maxScore) * 80);
-      const types = (a.attack_types || []).join(', ') || '—';
+// ==================== INIT LEAFLET MAP ====================
+function initMap() {
+  attackMap = L.map('worldmap', {
+    zoomControl: true,
+    attributionControl: true,
+  }).setView([20, 0], 2);
 
-      return `
-        <tr>
-          <td>${a.ip}</td>
-          <td><span class="sev-badge sev-${a.top_severity}">${a.top_severity}</span></td>
-          <td>
-            <div class="score-bar-wrap">
-              <div class="score-bar" style="width:${pct}px; max-width:80px"></div>
-              <span>${a.threat_score}</span>
-            </div>
-          </td>
-          <td>${a.event_count}</td>
-          <td style="color:#3a5570; font-size:11px">${types}</td>
-        </tr>`;
-    }).join('');
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/">CARTO</a>',
+    subdomains: 'abcd',
+    maxZoom: 19,
+  }).addTo(attackMap);
+}
 
-    wrap.innerHTML = `
-      <table>
-        <thead>
-          <tr>
-            <th>Source IP</th>
-            <th>Top Severity</th>
-            <th>Threat Score</th>
-            <th>Events</th>
-            <th>Attack Types</th>
-          </tr>
-        </thead>
-        <tbody>${rows}</tbody>
-      </table>`;
+// ==================== UPDATE STAT CARDS ====================
+function updateStats(report) {
+  const sev = report.severity_counts || {};
+  document.getElementById('s-critical').textContent = (sev.CRITICAL || 0).toLocaleString();
+  document.getElementById('s-high').textContent = (sev.HIGH || 0).toLocaleString();
+  document.getElementById('s-total').textContent = (report.total_events || 0).toLocaleString();
+  document.getElementById('s-attackers').textContent = ((report.attackers || []).length).toLocaleString();
+}
+
+// ==================== UPDATE ATTACK TYPE BARS ====================
+function updateAttackBars(report) {
+  const summary = report.attack_summary || {};
+  const container = document.getElementById('attack-bars');
+  
+  if (Object.keys(summary).length === 0) {
+    container.innerHTML = '<div style="text-align:center;color:var(--muted);padding:30px;font-size:12px">No attack data yet</div>';
+    return;
   }
 
-  async function refresh() {
-    try {
-      const report = await fetchReport();
-      const sev = report.severity_counts || {};
+  const sorted = Object.entries(summary).sort((a,b) => b[1] - a[1]).slice(0,6);
+  const max = sorted[0]?.[1] || 1;
+  const barColors = ['cred','api','bucket','obj','api','cred'];
 
-      setText('cnt-critical', sev.CRITICAL || 0);
-      setText('cnt-high', sev.HIGH || 0);
-      setText('cnt-total', report.total_events || 0);
-      setText('cnt-attackers', (report.attackers || []).length);
-      setText('refresh-time', 'Last updated: ' + new Date().toLocaleTimeString());
+  container.innerHTML = sorted.map(([type, count], i) => {
+    const pct = Math.round((count / max) * 92);
+    return `
+      <div class="bar-row">
+        <div class="bar-label">${type.replace(/_/g, ' ')}</div>
+        <div class="bar-track">
+          <div class="bar-fill ${barColors[i] || 'api'}" style="width:${pct}%">${count.toLocaleString()}</div>
+        </div>
+      </div>`;
+  }).join('');
+}
 
-      updateCharts(report);
-      renderTable(report.attackers || []);
-      await updateAttackMap();
+// ==================== UPDATE SEVERITY DONUT ====================
+function updateDonut(report) {
+  const sev = report.severity_counts || {};
+  const data = SEV_ORDER.map(s => sev[s] || 0);
+  
+  if (donutChart) {
+    donutChart.data.datasets[0].data = data;
+    donutChart.update();
+  } else {
+    donutChart = new Chart(document.getElementById('donut'), {
+      type: 'doughnut',
+      data: {
+        labels: SEV_ORDER.map(s => s.charAt(0) + s.slice(1).toLowerCase()),
+        datasets: [{ data, backgroundColor: ['#ef4444','#f97316','#06b6d4','#22c55e'], borderWidth: 0, hoverOffset: 4 }]
+      },
+      options: {
+        responsive: false,
+        cutout: '72%',
+        plugins: { legend: { display: false } }
+      }
+    });
+  }
 
-    } catch (e) {
-      document.getElementById('attacker-table-wrap').innerHTML =
-        '<div class="empty"><div class="big">⚠️</div>Could not load report. Is the analyzer running?</div>';
+  const legend = document.getElementById('donut-legend');
+  const colors = ['#ef4444','#f97316','#06b6d4','#22c55e'];
+  legend.innerHTML = SEV_ORDER.map((s,i) => `
+    <div class="legend-item">
+      <div class="legend-dot" style="background:${colors[i]}"></div>
+      <span class="legend-label">${s.charAt(0)+s.slice(1).toLowerCase()}</span>
+      <span class="legend-val" style="color:${colors[i]}">${(sev[s]||0).toLocaleString()}</span>
+    </div>`).join('');
+}
+
+// ==================== UPDATE LIVE FEED ====================
+function updateFeed(report) {
+  const events = report.recent_events || [];
+  const feed = document.getElementById('feed');
+  
+  if (events.length === 0) {
+    feed.innerHTML = '<div style="text-align:center;color:var(--muted);padding:40px 0;font-size:12px">Waiting for attack events…</div>';
+    return;
+  }
+
+  feed.innerHTML = events.slice(0, 15).map(e => {
+    const sev = (e.severity || 'low').toLowerCase();
+    const time = e.timestamp ? new Date(e.timestamp).toLocaleTimeString() : '—';
+    const svc = e.service || 'unknown';
+    const path = e.path || '/';
+    const action = e.action || 'request';
+    const country = e.country ? ` (${e.country})` : '';
+    return `
+      <div class="feed-item ${sev}">
+        <div class="feed-time">${time}</div>
+        <div class="feed-content">
+          <div class="feed-ip">${e.source_ip}${country}</div>
+          <div class="feed-msg">[${svc}] ${action} ${path}</div>
+        </div>
+        <span class="sev-badge ${sev}">${e.severity || 'LOW'}</span>
+      </div>`;
+  }).join('');
+}
+
+// ==================== UPDATE ATTACKER TABLE ====================
+function updateAttackers(report) {
+  const attackers = report.attackers || [];
+  const wrap = document.getElementById('attacker-table-wrap');
+  
+  if (attackers.length === 0) {
+    wrap.innerHTML = '<div style="text-align:center;color:var(--muted);padding:30px;font-size:12px">No attacker profiles yet — honeypots are listening.</div>';
+    return;
+  }
+
+  const maxScore = attackers[0]?.threat_score || 1;
+
+  const rows = attackers.slice(0, 20).map(a => {
+    const pct = Math.min(100, Math.round((a.threat_score / maxScore) * 100));
+    const types = (a.attack_types || []).join(', ') || '—';
+    const lastSeen = a.last_seen ? new Date(a.last_seen).toLocaleTimeString() : '—';
+    const sev = (a.top_severity || 'low').toLowerCase();
+    
+    return `
+      <tr>
+        <td class="ip-cell">${a.ip}</td>
+        <td><span class="sev-badge ${sev}">${a.top_severity || 'LOW'}</span></td>
+        <td>
+          <div style="display:flex;align-items:center;gap:8px">
+            <div class="score-bar"><div class="score-fill" style="width:${pct}%"></div></div>
+            <span style="font-size:11px;color:var(--cyan)">${(a.threat_score || 0).toLocaleString()}</span>
+          </div>
+        </td>
+        <td style="color:#e2e8f0">${(a.event_count || 0).toLocaleString()}</td>
+        <td style="color:var(--muted);font-size:11px">${types}</td>
+        <td style="color:var(--muted);font-size:11px">${lastSeen}</td>
+      </tr>`;
+  }).join('');
+
+  wrap.innerHTML = `
+    <table class="attacker-table">
+      <thead>
+        <tr><th>Source IP</th><th>Top severity</th><th>Threat score</th><th>Events</th><th>Attack types</th><th>Last seen</th></tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+// ==================== UPDATE WORLD MAP (Leaflet) ====================
+async function updateMap() {
+  const attacks = await fetchMapData();
+  if (!attacks) return;
+  
+  attackMarkers.forEach(m => attackMap.removeLayer(m));
+  attackMarkers = [];
+
+  if (!attacks || attacks.length === 0) return;
+
+  const COLORS = { CRITICAL:'#ef4444', HIGH:'#f97316', MEDIUM:'#06b6d4', LOW:'#22c55e' };
+
+  const seen = {};
+  attacks.forEach(a => {
+    if (!a.latitude || !a.longitude) return;
+    const key = a.source_ip;
+    if (!seen[key] || (a.severity === 'CRITICAL')) {
+      seen[key] = a;
     }
-  }
-
-  initCharts();
-  initMap();
-
-  refresh().finally(() => {
-    document.getElementById('loader').classList.add('hidden');
   });
 
-  setInterval(refresh, REFRESH_MS);
+  Object.values(seen).forEach(a => {
+    const color = COLORS[a.severity] || '#22c55e';
+    const marker = L.circleMarker([a.latitude, a.longitude], {
+      radius: 7,
+      color: color,
+      fillColor: color,
+      fillOpacity: 0.75,
+      weight: 2,
+    }).addTo(attackMap);
+
+    marker.bindPopup(`
+      <b style="color:#06b6d4">${a.source_ip}</b><br>
+      ${a.city || 'Unknown'}, ${a.country || 'Unknown'}<br>
+      ISP: ${a.isp || 'Unknown'}<br>
+      Attack: ${a.attack_type || 'Unknown'}<br>
+      Severity: ${a.severity || 'Unknown'}<br>
+      Events: ${a.event_count || 0}
+    `);
+
+    attackMarkers.push(marker);
+  });
+}
+
+// ==================== CLOUD FILTER ====================
+let currentCloudFilter = 'all';
+
+function onCloudFilterChange() {
+  currentCloudFilter = document.getElementById('cloud-filter').value;
+  refresh();
+}
+
+// ==================== MAIN REFRESH ====================
+async function refresh() {
+  try {
+    const report = await fetchReport();
+    if (!report) return;
+    
+    if (report.role) updateRoleUI(report.role);
+    
+    updateStats(report);
+    updateAttackBars(report);
+    updateDonut(report);
+    updateFeed(report);
+    updateAttackers(report);
+    await updateMap();
+  } catch (e) {
+    console.error('Dashboard refresh error:', e);
+  }
+}
+
+// Initialize map first
+initMap();
+refresh();
+setInterval(refresh, 15000);
 </script>
 </body>
 </html>
