@@ -13,6 +13,11 @@ CREATE TABLE IF NOT EXISTS events (
     attack_type    TEXT,
     severity       TEXT,
     cloud_provider TEXT,
+    country        TEXT,
+    city           TEXT,
+    isp            TEXT,
+    latitude       FLOAT,
+    longitude      FLOAT,
     raw            JSONB,
     inserted_at    TIMESTAMPTZ DEFAULT NOW()
 );
