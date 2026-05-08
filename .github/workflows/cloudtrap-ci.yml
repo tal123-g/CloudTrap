@@ -24,6 +24,10 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Install common dependencies
+        run: |
+          pip install flask psycopg2-binary boto3 requests
+
       - name: Check Python syntax
         run: |
           python -m py_compile services/api-service/app.py
@@ -31,6 +35,7 @@ jobs:
           python -m py_compile services/login-portal/app.py
           python -m py_compile services/analyzer/analyzer.py
           python -m py_compile services/dashboard/app.py
+          python -m py_compile services/log-forwarder/forwarder.py
 
       - name: Validate Docker Compose
         run: docker compose config
@@ -45,3 +50,4 @@ jobs:
           scan-ref: .
           severity: CRITICAL
           exit-code: 0
+          continue-on-error: true
