@@ -216,7 +216,10 @@ def insert_events(conn, logs):
     for log in logs:
         attack_type, severity = classify_event(log)
         source_ip = log.get("source_ip") or log.get("src_ip") or "unknown"
-        geo = get_ip_geolocation(source_ip)
+        geo = get_ip_geolocation(source_ip) or {
+            "country": "Unknown", "city": "Unknown",
+            "isp": "Unknown", "latitude": None, "longitude": None,
+        }
 
         rows.append((
             log.get("timestamp"),
