@@ -16,14 +16,14 @@ import psycopg2
 import requests
 from psycopg2.extras import execute_values
 
-# ── Log sources ────────────────────────────────────────────────────────────────
+# Log sources
 LOG_FILES = {
     "api-service": Path(os.getenv("API_LOG_FILE", "logs/api-service/logs.jsonl")),
     "s3-service": Path(os.getenv("S3_LOG_FILE", "logs/s3-service/logs.jsonl")),
     "login-portal": Path(os.getenv("LOGIN_LOG_FILE", "logs/login-portal/logs.jsonl")),
 }
 
-# ── Severity tiers ─────────────────────────────────────────────────────────────
+# Severity tiers
 SEVERITY = {
     "credential_attempt": "HIGH",
     "brute_force": "CRITICAL",
@@ -117,7 +117,7 @@ def load_logs(service_name, file_path):
     return logs
 
 
-# ── IP Geolocation ─────────────────────────────────────────────────────────────
+# IP Geolocation 
 def get_ip_geolocation(ip):
     """Lookup geolocation for an IP using ip-api.com."""
 
@@ -216,9 +216,14 @@ def insert_events(conn, logs):
     for log in logs:
         attack_type, severity = classify_event(log)
         source_ip = log.get("source_ip") or log.get("src_ip") or "unknown"
-        geo = get_ip_geolocation(source_ip) or {
-            "country": "Unknown", "city": "Unknown",
-            "isp": "Unknown", "latitude": None, "longitude": None,
+        geo = get_ip_geolocation(source_ip) or {}
+
+        geo = {
+            "country": geo.get("country", "Unknown"),
+            "city": geo.get("city", "Unknown"),
+            "isp": geo.get("isp", "Unknown"),
+            "latitude": geo.get("latitude", None),
+            "longitude": geo.get("longitude", None),
         }
 
         rows.append((
