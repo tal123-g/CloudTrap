@@ -16,4 +16,4 @@ cloudtrap-key*
 .docker/
 
 # Database
-*.sql.bak
+*.sql.bak*.jsonl

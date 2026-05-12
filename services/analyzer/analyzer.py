@@ -214,6 +214,7 @@ def insert_events(conn, logs):
     rows = []
 
     for log in logs:
+
         attack_type, severity = classify_event(log)
         source_ip = log.get("source_ip") or log.get("src_ip") or "unknown"
 

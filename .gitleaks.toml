@@ -1,0 +1,7 @@
+[allowlist]
+  description = "Exclude honeypot log files from secret scanning"
+  paths = [
+    '''services/*/logs.jsonl''',
+    '''services/*/logs/*.jsonl''',
+    '''logs/**/*.jsonl''',
+  ]
