@@ -74,12 +74,14 @@ services:
     volumes:
       - login-logs:/app/logs
     environment:
-      - CLOUD_PROVIDER=aws
+      - CLOUD_PROVIDER=gcp
       - LOG_FILE=/app/logs/logs.jsonl
       - CLOUDWATCH_ENABLED=true
       - AWS_REGION=eu-north-1
       - CLOUDWATCH_LOG_GROUP=cloudtrap-logs
       - CLOUDWATCH_LOG_STREAM=login-portal
+      - GCP_LOGGING_ENABLED=true
+      - GCP_LOG_NAME=cloudtrap-login-porta
     restart: always
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5002/_internal/health"]
