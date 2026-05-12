@@ -214,37 +214,37 @@ def insert_events(conn, logs):
     rows = []
 
     for log in logs:
-        attack_type, severity = classify_event(log)
-        source_ip = log.get("source_ip") or log.get("src_ip") or "unknown"
-        geo = get_ip_geolocation(source_ip) or {}
+    attack_type, severity = classify_event(log)
+    source_ip = log.get("source_ip") or log.get("src_ip") or "unknown"
 
-        geo = {
-            "country": geo.get("country", "Unknown"),
-            "city": geo.get("city", "Unknown"),
-            "isp": geo.get("isp", "Unknown"),
-            "latitude": geo.get("latitude", None),
-            "longitude": geo.get("longitude", None),
-        }
+    geo = get_ip_geolocation(source_ip) or {}
 
-        rows.append((
-            log.get("timestamp"),
-            log.get("service"),
-            source_ip,
-            log.get("method"),
-            log.get("path"),
-            log.get("action"),
-            log.get("command"),
-            attack_type,
-            severity,
-            log.get("cloud_provider", "aws"),
-            geo["country"],
-            geo["city"],
-            geo["isp"],
-            geo["latitude"],
-            geo["longitude"],
-            json.dumps(log),
-        ))
+    geo = {
+        "country": geo.get("country", "Unknown"),
+        "city": geo.get("city", "Unknown"),
+        "isp": geo.get("isp", "Unknown"),
+        "latitude": geo.get("latitude", None),
+        "longitude": geo.get("longitude", None),
+    }
 
+    rows.append((
+        log.get("timestamp"),
+        log.get("service"),
+        source_ip,
+        log.get("method"),
+        log.get("path"),
+        log.get("action"),
+        log.get("command"),
+        attack_type,
+        severity,
+        log.get("cloud_provider", "aws"),
+        geo["country"],
+        geo["city"],
+        geo["isp"],
+        geo["latitude"],
+        geo["longitude"],
+        json.dumps(log),
+    ))
     with conn.cursor() as cur:
         execute_values(cur, """
             INSERT INTO events
