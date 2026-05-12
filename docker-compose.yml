@@ -80,7 +80,7 @@ services:
       - AWS_REGION=eu-north-1
       - CLOUDWATCH_LOG_GROUP=cloudtrap-logs
       - CLOUDWATCH_LOG_STREAM=login-portal
-      - GCP_LOGGING_ENABLED=true
+      - GCP_LOGGING_ENABLED=false
       - GCP_LOG_NAME=cloudtrap-login-porta
     restart: always
     healthcheck:
