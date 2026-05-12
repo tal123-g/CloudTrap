@@ -38,6 +38,7 @@ SEVERITY = {
     "unknown": "LOW",
 }
 
+GEO_CACHE = {}
 
 def get_db():
     return psycopg2.connect(
