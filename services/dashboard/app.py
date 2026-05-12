@@ -74,9 +74,9 @@ def fetch_secrets():
         return {}
 
 _secrets = fetch_secrets()
-ADMIN_PASS = _secrets["ADMIN_PASS"]
-ANALYST_PASS = _secrets["ANALYST_PASS"]
-POSTGRES_PASSWORD = _secrets["POSTGRES_PASSWORD"]
+ADMIN_PASS = _secrets.get("ADMIN_PASS", os.getenv("ADMIN_PASS", "cloudtrap2026"))
+ANALYST_PASS = _secrets.get("ANALYST_PASS", os.getenv("ANALYST_PASS", "analyst2026"))
+POSTGRES_PASSWORD = _secrets.get("POSTGRES_PASSWORD", os.getenv("POSTGRES_PASSWORD", "cloudtrap"))
 def get_db():
     return psycopg2.connect(
         host=os.getenv("POSTGRES_HOST", "postgres"),
