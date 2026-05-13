@@ -137,6 +137,20 @@ services:
       timeout: 5s
       retries: 3
 
+   gcp-log-receiver:
+    build:
+      context: ./services/gcp-log-receiver
+      dockerfile: Dockerfile
+    container_name: cloudtrap-gcp-log-receiver
+    ports:
+      - "5010:5010"
+    volumes:
+      - login-logs:/app/logs/login-portal
+    environment:
+      INGEST_TOKEN: cloudtrap-demo-token
+      LOGIN_LOG_FILE: /app/logs/login-portal/logs.jsonl
+    restart: always
+    
   log-forwarder:
     build:
       context: ./services/log-forwarder
