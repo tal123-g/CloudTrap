@@ -26,7 +26,7 @@ app = Flask(__name__)
 
 LOG_FILE = Path(os.getenv("LOG_FILE", "logs.jsonl"))
 
-# ==================== AWS CLOUDWATCH CONFIG ====================
+# AWS CLOUDWATCH CONFIG
 CLOUDWATCH_ENABLED = os.getenv("CLOUDWATCH_ENABLED", "false").lower() == "true"
 AWS_REGION = os.getenv("AWS_REGION", "eu-north-1")
 LOG_GROUP = os.getenv("CLOUDWATCH_LOG_GROUP", "cloudtrap-logs")
@@ -34,7 +34,7 @@ LOG_STREAM = os.getenv("CLOUDWATCH_LOG_STREAM", "login-portal")
 
 logs_client = boto3.client("logs", region_name=AWS_REGION) if CLOUDWATCH_ENABLED else None
 
-# ==================== GCP CLOUD LOGGING CONFIG ====================
+# GCP CLOUD LOGGING CONFIG
 GCP_LOGGING_ENABLED = os.getenv("GCP_LOGGING_ENABLED", "false").lower() == "true"
 GCP_LOG_NAME = os.getenv("GCP_LOG_NAME", "cloudtrap-login-portal")
 
