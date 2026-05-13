@@ -385,62 +385,32 @@ function updateDonut(report) {
 }
 
 function updateFeed(report) {
+  const events = report.recent_events || [];
   const feed = document.getElementById('feed');
-
-  const events = (report.recent_events || []).sort((a, b) => {
-    return new Date(b.timestamp || 0) - new Date(a.timestamp || 0);
-  });
-
   if (events.length === 0) {
     feed.innerHTML = '<div style="text-align:center;color:var(--muted);padding:40px 0;font-size:12px">Waiting for attack events…</div>';
     return;
   }
-
   feed.innerHTML = events.slice(0, 15).map(e => {
     const sev = (e.severity || 'low').toLowerCase();
-
-    let dayStr = '—';
+    let dateStr = '—';
     let timeStr = '—';
-
     if (e.timestamp) {
       const d = new Date(e.timestamp);
-      dayStr = d.toLocaleDateString('en-GB', {
-        weekday: 'short',
-        day: '2-digit',
-        month: 'short'
-      });
-      timeStr = d.toLocaleTimeString('en-GB', {
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit'
-      });
+      dateStr = d.toLocaleDateString('en-GB', {day:'2-digit', month:'short'});
+      timeStr = d.toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit', second:'2-digit'});
     }
-
     const svc = e.service || 'unknown';
     const path = e.path || '/';
     const action = e.action || 'request';
     const country = e.country ? ` (${e.country})` : '';
-
-    const cloudProvider = (e.cloud_provider || 'aws').toLowerCase();
-    const cloudLabel = cloudProvider.toUpperCase();
-
-    return `
-      <div class="feed-item ${sev}">
-        <div class="feed-time">
-          <div>${dayStr}</div>
-          <div>${timeStr}</div>
-        </div>
-
-        <div class="feed-content">
-          <div class="feed-ip">${e.source_ip}${country}</div>
-          <div class="feed-msg">[${svc}] ${action} ${path}</div>
-          <div class="feed-meta">
-            <span class="cloud-badge ${cloudProvider}">${cloudLabel}</span>
-            <span class="sev-badge ${sev}">${e.severity || 'LOW'}</span>
-          </div>
-        </div>
-      </div>
-    `;
+    let cloudProvider = 'aws';
+    let cloudLabel = 'AWS';
+    if (e.service && e.service.includes('gcp')) {
+      cloudProvider = 'gcp';
+      cloudLabel = 'GCP';
+    }
+    return `<div class="feed-item ${sev}"><div class="feed-time"><div>${dateStr}</div><div>${timeStr}</div></div><div class="feed-content"><div class="feed-ip">${e.source_ip}${country}</div><div class="feed-msg">[${svc}] ${action} ${path}</div><div class="feed-meta"><span class="cloud-badge ${cloudProvider}">${cloudLabel}</span></div></div><span class="sev-badge ${sev}">${e.severity || 'LOW'}</span></div>`;
   }).join('');
 }
 
