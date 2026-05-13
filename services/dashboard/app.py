@@ -74,10 +74,9 @@ def fetch_secrets():
         return {}
 
 _secrets = fetch_secrets()
-ADMIN_PASS = _secrets.get("ADMIN_PASS", os.getenv("ADMIN_PASS", "cloudtrap2026"))
-ANALYST_PASS = _secrets.get("ANALYST_PASS", os.getenv("ANALYST_PASS", "analyst2026"))
-POSTGRES_PASSWORD = _secrets.get("POSTGRES_PASSWORD", os.getenv("POSTGRES_PASSWORD", "cloudtrap"))
-
+ADMIN_PASS = _secrets["ADMIN_PASS"]
+ANALYST_PASS = _secrets["ANALYST_PASS"]
+POSTGRES_PASSWORD = _secrets["POSTGRES_PASSWORD"]
 def get_db():
     return psycopg2.connect(
         host=os.getenv("POSTGRES_HOST", "postgres"),
@@ -268,7 +267,7 @@ def api_report():
 
         cur.execute(f"""
             SELECT timestamp, service, source_ip, attack_type, severity,
-                   path, action, country, city, isp, latitude, longitude
+                   path, action, country, city, isp, latitude, longitude,cloud_provider
             FROM events {where}
             ORDER BY inserted_at DESC
             LIMIT 50
@@ -290,6 +289,7 @@ def api_report():
                 "isp": row["isp"],
                 "latitude": row["latitude"],
                 "longitude": row["longitude"],
+                "cloud_provider": row["cloud_provider"],
             })
 
         return jsonify({
@@ -524,5 +524,5 @@ if __name__ == "__main__":
         certfile="/app/certs/cert.pem",
         keyfile="/app/certs/key.pem"
     )
-    print("[+] HTTPS enabled with self-signed certificate")
-    app.run(host="0.0.0.0", port=5003, debug=False, ssl_context=ssl_context)
+    print("[+] Dashboard running on HTTP")
+    app.run(host="0.0.0.0", port=5003, debug=False)

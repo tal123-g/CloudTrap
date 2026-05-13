@@ -1,13 +1,11 @@
-version: "3.9"
-
 services:
 
   postgres:
     image: postgres:15-alpine
     container_name: cloudtrap-postgres
     environment:
-      POSTGRES_DB:       cloudtrap
-      POSTGRES_USER:     cloudtrap
+      POSTGRES_DB: cloudtrap
+      POSTGRES_USER: cloudtrap
       POSTGRES_PASSWORD: cloudtrap
     volumes:
       - postgres-data:/var/lib/postgresql/data
@@ -28,12 +26,13 @@ services:
     volumes:
       - api-logs:/app/logs
     environment:
-      - CLOUD_PROVIDER=aws
-      - LOG_FILE=/app/logs/logs.jsonl
-      - CLOUDWATCH_ENABLED=true
-      - AWS_REGION=eu-north-1
-      - CLOUDWATCH_LOG_GROUP=cloudtrap-logs
-      - CLOUDWATCH_LOG_STREAM=api-service
+      CLOUD_PROVIDER: aws
+      LOG_FILE: /app/logs/logs.jsonl
+      CLOUDWATCH_ENABLED: "true"
+      PYTHONUNBUFFERED: "1"
+      AWS_REGION: eu-north-1
+      CLOUDWATCH_LOG_GROUP: cloudtrap-logs
+      CLOUDWATCH_LOG_STREAM: api-service
     restart: always
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5000/_internal/health"]
@@ -51,12 +50,13 @@ services:
     volumes:
       - s3-logs:/app/logs
     environment:
-      - CLOUD_PROVIDER=aws
-      - LOG_FILE=/app/logs/logs.jsonl
-      - CLOUDWATCH_ENABLED=true
-      - AWS_REGION=eu-north-1
-      - CLOUDWATCH_LOG_GROUP=cloudtrap-logs
-      - CLOUDWATCH_LOG_STREAM=s3-service
+      CLOUD_PROVIDER: aws
+      LOG_FILE: /app/logs/logs.jsonl
+      CLOUDWATCH_ENABLED: "true"
+      PYTHONUNBUFFERED: "1"
+      AWS_REGION: eu-north-1
+      CLOUDWATCH_LOG_GROUP: cloudtrap-logs
+      CLOUDWATCH_LOG_STREAM: s3-service
     restart: always
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5001/_internal/health"]
@@ -74,12 +74,15 @@ services:
     volumes:
       - login-logs:/app/logs
     environment:
-      - CLOUD_PROVIDER=aws
-      - LOG_FILE=/app/logs/logs.jsonl
-      - CLOUDWATCH_ENABLED=true
-      - AWS_REGION=eu-north-1
-      - CLOUDWATCH_LOG_GROUP=cloudtrap-logs
-      - CLOUDWATCH_LOG_STREAM=login-portal
+      CLOUD_PROVIDER: gcp
+      LOG_FILE: /app/logs/logs.jsonl
+      CLOUDWATCH_ENABLED: "true"
+      GCP_LOGGING_ENABLED: "true"
+      PYTHONUNBUFFERED: "1"
+      AWS_REGION: eu-north-1
+      CLOUDWATCH_LOG_GROUP: cloudtrap-logs
+      CLOUDWATCH_LOG_STREAM: login-portal
+      GCP_LOG_NAME: cloudtrap-login-portal
     restart: always
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5002/_internal/health"]
@@ -97,14 +100,14 @@ services:
       - s3-logs:/app/logs/s3-service
       - login-logs:/app/logs/login-portal
     environment:
-      - API_LOG_FILE=/app/logs/api-service/logs.jsonl
-      - S3_LOG_FILE=/app/logs/s3-service/logs.jsonl
-      - LOGIN_LOG_FILE=/app/logs/login-portal/logs.jsonl
-      - POSTGRES_HOST=postgres
-      - POSTGRES_PORT=5432
-      - POSTGRES_DB=cloudtrap
-      - POSTGRES_USER=cloudtrap
-      - POSTGRES_PASSWORD=cloudtrap
+      API_LOG_FILE: /app/logs/api-service/logs.jsonl
+      S3_LOG_FILE: /app/logs/s3-service/logs.jsonl
+      LOGIN_LOG_FILE: /app/logs/login-portal/logs.jsonl
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: cloudtrap
+      POSTGRES_USER: cloudtrap
+      POSTGRES_PASSWORD: cloudtrap
     restart: always
     depends_on:
       postgres:
@@ -119,11 +122,11 @@ services:
       - "443:5003"
       - "5003:5003"
     environment:
-      - POSTGRES_HOST=postgres
-      - POSTGRES_PORT=5432
-      - POSTGRES_DB=cloudtrap
-      - POSTGRES_USER=cloudtrap
-      - POSTGRES_PASSWORD=cloudtrap
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: cloudtrap
+      POSTGRES_USER: cloudtrap
+      POSTGRES_PASSWORD: cloudtrap
     restart: always
     depends_on:
       postgres:
@@ -134,6 +137,20 @@ services:
       timeout: 5s
       retries: 3
 
+   gcp-log-receiver:
+    build:
+      context: ./services/gcp-log-receiver
+      dockerfile: Dockerfile
+    container_name: cloudtrap-gcp-log-receiver
+    ports:
+      - "5010:5010"
+    volumes:
+      - login-logs:/app/logs/login-portal
+    environment:
+      INGEST_TOKEN: cloudtrap-demo-token
+      LOGIN_LOG_FILE: /app/logs/login-portal/logs.jsonl
+    restart: always
+    
   log-forwarder:
     build:
       context: ./services/log-forwarder
@@ -144,12 +161,12 @@ services:
       - s3-logs:/app/logs/s3-service
       - login-logs:/app/logs/login-portal
     environment:
-      - AWS_REGION=eu-north-1
-      - CLOUDWATCH_LOG_GROUP=cloudtrap-logs
-      - POLL_INTERVAL=30
-      - API_LOG_FILE=/app/logs/api-service/logs.jsonl
-      - S3_LOG_FILE=/app/logs/s3-service/logs.jsonl
-      - LOGIN_LOG_FILE=/app/logs/login-portal/logs.jsonl
+      AWS_REGION: eu-north-1
+      CLOUDWATCH_LOG_GROUP: cloudtrap-logs
+      POLL_INTERVAL: 5
+      API_LOG_FILE: /app/logs/api-service/logs.jsonl
+      S3_LOG_FILE: /app/logs/s3-service/logs.jsonl
+      LOGIN_LOG_FILE: /app/logs/login-portal/logs.jsonl
     restart: always
     depends_on:
       - api-service
