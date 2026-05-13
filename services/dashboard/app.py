@@ -267,7 +267,7 @@ def api_report():
 
         cur.execute(f"""
             SELECT timestamp, service, source_ip, attack_type, severity,
-                   path, action, country, city, isp, latitude, longitude
+                   path, action, country, city, isp, latitude, longitude,cloud_provider
             FROM events {where}
             ORDER BY inserted_at DESC
             LIMIT 50
@@ -289,6 +289,7 @@ def api_report():
                 "isp": row["isp"],
                 "latitude": row["latitude"],
                 "longitude": row["longitude"],
+                "cloud_provider": row["cloud_provider"],
             })
 
         return jsonify({
@@ -523,5 +524,5 @@ if __name__ == "__main__":
         certfile="/app/certs/cert.pem",
         keyfile="/app/certs/key.pem"
     )
-    print("[+] HTTPS enabled with self-signed certificate")
-    app.run(host="0.0.0.0", port=5003, debug=False, ssl_context=ssl_context)
+    print("[+] Dashboard running on HTTP")
+    app.run(host="0.0.0.0", port=5003, debug=False)
