@@ -92,6 +92,23 @@ def filtered_headers():
     }
 
 
+def classify_action(path: str, method: str):
+    path_lower = path.lower()
+
+    if "login" in path_lower or "auth" in path_lower:
+        return "credential_attempt"
+
+    if "admin" in path_lower:
+        return "admin_probe"
+
+    if path_lower.startswith("/api"):
+        return "api_reconnaissance"
+
+    if method in ["POST", "PUT", "PATCH"]:
+        return "payload_submission"
+
+    return "path_probe"
+    
 def write_log(entry: dict):
     line = json.dumps(entry, ensure_ascii=False)
 
@@ -146,6 +163,7 @@ def catch_all(path):
         "user_agent": request.headers.get("User-Agent"),
         "headers": filtered_headers(),
         "payload": safe_payload(),
+        "action": classify_action(full_path, request.method),
     }
 
     write_log(log_entry)

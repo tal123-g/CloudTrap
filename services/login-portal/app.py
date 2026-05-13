@@ -17,16 +17,39 @@ import boto3
 from botocore.exceptions import ClientError
 from flask import Flask, request, jsonify, Response
 
+try:
+    from google.cloud import logging as gcp_logging
+except ImportError:
+    gcp_logging = None
+
 app = Flask(__name__)
 
 LOG_FILE = Path(os.getenv("LOG_FILE", "logs.jsonl"))
 
+# AWS CLOUDWATCH CONFIG
 CLOUDWATCH_ENABLED = os.getenv("CLOUDWATCH_ENABLED", "false").lower() == "true"
 AWS_REGION = os.getenv("AWS_REGION", "eu-north-1")
 LOG_GROUP = os.getenv("CLOUDWATCH_LOG_GROUP", "cloudtrap-logs")
 LOG_STREAM = os.getenv("CLOUDWATCH_LOG_STREAM", "login-portal")
 
 logs_client = boto3.client("logs", region_name=AWS_REGION) if CLOUDWATCH_ENABLED else None
+
+# GCP CLOUD LOGGING CONFIG
+GCP_LOGGING_ENABLED = os.getenv("GCP_LOGGING_ENABLED", "false").lower() == "true"
+GCP_LOG_NAME = os.getenv("GCP_LOG_NAME", "cloudtrap-login-portal")
+
+gcp_logger = None
+
+if GCP_LOGGING_ENABLED:
+    if gcp_logging is None:
+        print("[GCP Logging setup error] google-cloud-logging is not installed", flush=True)
+    else:
+        try:
+            gcp_client = gcp_logging.Client()
+            gcp_logger = gcp_client.logger(GCP_LOG_NAME)
+            print("[+] GCP Cloud Logging enabled", flush=True)
+        except Exception as e:
+            print(f"[GCP Logging setup error] {e}", flush=True)
 
 log = logging.getLogger("werkzeug")
 log.setLevel(logging.ERROR)
@@ -111,17 +134,19 @@ LOGIN_PAGE = """<!DOCTYPE html>
 </body>
 </html>"""
 
-LOGIN_PAGE_ERROR = LOGIN_PAGE.replace('display: none;', 'display: block;')
+LOGIN_PAGE_ERROR = LOGIN_PAGE.replace("display: none;", "display: block;")
 
 
 def setup_cloudwatch():
     if not CLOUDWATCH_ENABLED:
         return
+
     try:
         logs_client.create_log_group(logGroupName=LOG_GROUP)
     except ClientError as e:
         if e.response["Error"]["Code"] != "ResourceAlreadyExistsException":
             raise
+
     try:
         logs_client.create_log_stream(
             logGroupName=LOG_GROUP,
@@ -135,6 +160,7 @@ def setup_cloudwatch():
 def send_to_cloudwatch(entry: dict):
     if not CLOUDWATCH_ENABLED:
         return
+
     try:
         logs_client.put_log_events(
             logGroupName=LOG_GROUP,
@@ -148,30 +174,44 @@ def send_to_cloudwatch(entry: dict):
         print(f"[CloudWatch error] {e}", flush=True)
 
 
+def send_to_gcp_logging(entry: dict):
+    if not GCP_LOGGING_ENABLED or gcp_logger is None:
+        return
+
+    try:
+        gcp_logger.log_struct(entry, severity="INFO")
+    except Exception as e:
+        print(f"[GCP Logging error] {e}", flush=True)
+
+
 def filtered_headers():
     return {k: v for k, v in request.headers.items() if k not in HEADER_BLOCKLIST}
 
 
 def write_log(action: str, extra: dict = None):
     entry = {
-        "timestamp":      datetime.now(timezone.utc).isoformat(),
-        "service":        "login-portal",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "service": "login-portal",
         "cloud_provider": os.getenv("CLOUD_PROVIDER", "gcp"),
-        "source_ip":      request.headers.get("X-Forwarded-For", request.remote_addr),
-        "method":         request.method,
-        "path":           request.path,
-        "user_agent":     request.headers.get("User-Agent"),
-        "headers":        filtered_headers(),
-        "action":         action,
+        "source_ip": request.headers.get("X-Forwarded-For", request.remote_addr),
+        "method": request.method,
+        "path": request.path,
+        "user_agent": request.headers.get("User-Agent"),
+        "headers": filtered_headers(),
+        "action": action,
     }
+
     if extra:
         entry.update(extra)
 
     line = json.dumps(entry, ensure_ascii=False)
+
     with LOG_FILE.open("a", encoding="utf-8") as f:
         f.write(line + "\n")
 
-    send_to_cloudwatch(entry)  # ← added
+    send_to_cloudwatch(entry)
+    send_to_gcp_logging(entry)
+
     print(line, flush=True)
 
 
@@ -194,10 +234,11 @@ def handle_login():
     password_hash = hashlib.sha256(password.encode()).hexdigest() if password else None
 
     write_log("credential_attempt", {
-        "username":        username,
-        "password_hash":   password_hash,
+        "username": username,
+        "password_hash": password_hash,
         "password_length": len(password),
     })
+
     return Response(LOGIN_PAGE_ERROR, status=401, mimetype="text/html")
 
 
@@ -206,6 +247,7 @@ def reset_password():
     write_log("password_reset_probe", {
         "username": request.form.get("email", request.form.get("username", "")),
     })
+
     return Response(
         "<h3 style='font-family:sans-serif;padding:40px'>Password reset is currently unavailable.</h3>",
         status=503,
@@ -221,5 +263,5 @@ def catch_all(path):
 
 if __name__ == "__main__":
     LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
-    setup_cloudwatch()  # ← added
+    setup_cloudwatch()
     app.run(host="0.0.0.0", port=5002, debug=False)

@@ -135,7 +135,7 @@ def list_buckets():
     body = (
         '<?xml version="1.0" encoding="UTF-8"?>'
         "<ListAllMyBucketsResult>"
-        "<Owner><ID>deadbeefdeadbeef</ID><DisplayName>honeypot</DisplayName></Owner>"
+        "<Owner><ID>youhavebeenpranked</ID><DisplayName>cloud-storage</DisplayName></Owner>"
         f"<Buckets>{bucket_entries}</Buckets>"
         "</ListAllMyBucketsResult>"
     )
